@@ -57,7 +57,6 @@ export function NotificationBell() {
   const seenIdsRef = useRef(null)
   const [pushPermission, setPushPermission] = useState('default')
   const [pushBusy, setPushBusy] = useState(false)
-  const [testBusy, setTestBusy] = useState(false)
 
   useEffect(() => {
     const perm = getPushPermission()
@@ -106,42 +105,6 @@ export function NotificationBell() {
       alert(`Could not turn on notifications: ${err?.message || 'unknown error'}`)
     } finally {
       setPushBusy(false)
-    }
-  }
-
-  const handleTestPush = async () => {
-    setTestBusy(true)
-    try {
-      const token = localStorage.getItem('token')
-      // Always (re)register the subscription first — permission being granted
-      // doesn't mean the server has a live subscription for this device.
-      const reg = await enablePushNotifications(token).catch((e) => ({ ok: false, reason: 'error', detail: e?.message }))
-      if (!reg.ok) {
-        alert(enableReasonMessage(reg))
-        return
-      }
-      const res = await fetch('/api/push/test', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        alert(data.error || 'Test failed.')
-        return
-      }
-      if (data.sent > 0) {
-        toast.success('Test sent — check your screen in a few seconds.')
-      } else {
-        alert(
-          'The server sent it but the push service rejected every device.\n\n' +
-            (data.failed?.[0]?.message ||
-              `status ${data.failed?.[0]?.statusCode || '?'} — the VAPID public/private keys may not match.`)
-        )
-      }
-    } catch (err) {
-      alert(`Test failed: ${err?.message || 'could not reach the server'}`)
-    } finally {
-      setTestBusy(false)
     }
   }
 
@@ -316,22 +279,6 @@ export function NotificationBell() {
                 <BellRing className="h-3 w-3" />
               )}
               {pushPermission === 'denied' ? 'Blocked' : 'Enable'}
-            </Button>
-          </div>
-        )}
-        {pushSupported() && pushPermission === 'granted' && (
-          <div className="flex items-center justify-between gap-2 border-b bg-primary/5 px-3 py-2">
-            <p className="text-xs text-muted-foreground">Alerts on for this device.</p>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 shrink-0 gap-1 text-xs"
-              onClick={handleTestPush}
-              disabled={testBusy}
-            >
-              {testBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <BellRing className="h-3 w-3" />}
-              Test now
             </Button>
           </div>
         )}
