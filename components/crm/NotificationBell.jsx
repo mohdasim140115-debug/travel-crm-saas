@@ -77,8 +77,8 @@ export function NotificationBell() {
 
   // Turn every failure reason into a plain-language message — a swallowed
   // reason is why "granted but nothing arrives" was so hard to place.
-  const enableReasonMessage = (reason) =>
-    ({
+  const enableReasonMessage = (result) => {
+    const known = {
       unsupported:
         "This browser can't do push notifications. Open the site in Chrome directly (not inside another app's browser), then try again.",
       'not-configured':
@@ -86,7 +86,10 @@ export function NotificationBell() {
       denied:
         "Notifications are blocked for this site. Turn them on in the browser's site settings, then try again.",
       'save-failed': 'Could not save this device. Check your connection and try again.',
-    })[reason] || 'Could not turn on notifications on this device. Please try again.'
+    }
+    if (known[result?.reason]) return known[result.reason]
+    return `Could not turn on notifications on this device.\n\n${result?.detail || 'Unknown error — try reloading the page.'}`
+  }
 
   const handleEnablePush = async () => {
     setPushBusy(true)
@@ -97,7 +100,7 @@ export function NotificationBell() {
       if (result.ok) {
         toast.success('Notifications on for this device.')
       } else {
-        alert(enableReasonMessage(result.reason))
+        alert(enableReasonMessage(result))
       }
     } catch (err) {
       alert(`Could not turn on notifications: ${err?.message || 'unknown error'}`)
@@ -112,9 +115,9 @@ export function NotificationBell() {
       const token = localStorage.getItem('token')
       // Always (re)register the subscription first — permission being granted
       // doesn't mean the server has a live subscription for this device.
-      const reg = await enablePushNotifications(token).catch((e) => ({ ok: false, reason: e?.message }))
+      const reg = await enablePushNotifications(token).catch((e) => ({ ok: false, reason: 'error', detail: e?.message }))
       if (!reg.ok) {
-        alert(enableReasonMessage(reg.reason))
+        alert(enableReasonMessage(reg))
         return
       }
       const res = await fetch('/api/push/test', {
