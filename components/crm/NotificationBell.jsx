@@ -60,8 +60,33 @@ export function NotificationBell() {
   const [testBusy, setTestBusy] = useState(false)
 
   useEffect(() => {
-    setPushPermission(getPushPermission())
+    const perm = getPushPermission()
+    setPushPermission(perm)
+    // If the browser already has permission, silently make sure the server
+    // actually has a live subscription for this device — the two can drift
+    // apart (site data cleared, subscription rotated/expired, or an earlier
+    // "Enable" that granted permission but never saved). enablePushNotifications
+    // is idempotent (reuses an existing subscription, upserts server-side),
+    // so this just heals that state on every load instead of the user being
+    // stuck with "permission on, but nothing arrives".
+    if (perm === 'granted' && pushSupported()) {
+      const token = localStorage.getItem('token')
+      if (token) enablePushNotifications(token).catch(() => {})
+    }
   }, [])
+
+  // Turn every failure reason into a plain-language message — a swallowed
+  // reason is why "granted but nothing arrives" was so hard to place.
+  const enableReasonMessage = (reason) =>
+    ({
+      unsupported:
+        "This browser can't do push notifications. Open the site in Chrome directly (not inside another app's browser), then try again.",
+      'not-configured':
+        'Push isn\'t set up on the server yet (VAPID key missing from the build). Tell your admin.',
+      denied:
+        "Notifications are blocked for this site. Turn them on in the browser's site settings, then try again.",
+      'save-failed': 'Could not save this device. Check your connection and try again.',
+    })[reason] || 'Could not turn on notifications on this device. Please try again.'
 
   const handleEnablePush = async () => {
     setPushBusy(true)
@@ -69,18 +94,13 @@ export function NotificationBell() {
     try {
       const result = await enablePushNotifications(token)
       setPushPermission(getPushPermission())
-      if (!result.ok) {
-        if (result.reason === 'denied') {
-          alert('Notifications were blocked. Enable them from your browser\'s site settings to receive alerts on this device.')
-        } else if (result.reason === 'save-failed') {
-          alert('Could not save this device for notifications. Check your connection and try again.')
-        }
+      if (result.ok) {
+        toast.success('Notifications on for this device.')
+      } else {
+        alert(enableReasonMessage(result.reason))
       }
-    } catch {
-      // A rejected promise anywhere in the subscribe chain (e.g. the
-      // browser's push service being unreachable) used to leave the button
-      // stuck on "busy" forever with no feedback — surface it instead.
-      alert('Could not enable notifications on this device. Please try again.')
+    } catch (err) {
+      alert(`Could not turn on notifications: ${err?.message || 'unknown error'}`)
     } finally {
       setPushBusy(false)
     }
@@ -90,25 +110,33 @@ export function NotificationBell() {
     setTestBusy(true)
     try {
       const token = localStorage.getItem('token')
+      // Always (re)register the subscription first — permission being granted
+      // doesn't mean the server has a live subscription for this device.
+      const reg = await enablePushNotifications(token).catch((e) => ({ ok: false, reason: e?.message }))
+      if (!reg.ok) {
+        alert(enableReasonMessage(reg.reason))
+        return
+      }
       const res = await fetch('/api/push/test', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(data.error || 'Test failed. Try tapping Enable again.')
+        alert(data.error || 'Test failed.')
         return
       }
       if (data.sent > 0) {
         toast.success('Test sent — check your screen in a few seconds.')
       } else {
         alert(
-          'The server accepted the request but every device push failed.\n\n' +
-            (data.failed?.[0]?.message || 'The saved subscription may be stale — tap Enable again.')
+          'The server sent it but the push service rejected every device.\n\n' +
+            (data.failed?.[0]?.message ||
+              `status ${data.failed?.[0]?.statusCode || '?'} — the VAPID public/private keys may not match.`)
         )
       }
-    } catch {
-      alert('Could not reach the server for the test.')
+    } catch (err) {
+      alert(`Test failed: ${err?.message || 'could not reach the server'}`)
     } finally {
       setTestBusy(false)
     }
@@ -300,7 +328,7 @@ export function NotificationBell() {
               disabled={testBusy}
             >
               {testBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <BellRing className="h-3 w-3" />}
-              Send test
+              Test now
             </Button>
           </div>
         )}
