@@ -57,6 +57,7 @@ export function NotificationBell() {
   const seenIdsRef = useRef(null)
   const [pushPermission, setPushPermission] = useState('default')
   const [pushBusy, setPushBusy] = useState(false)
+  const [testBusy, setTestBusy] = useState(false)
 
   useEffect(() => {
     setPushPermission(getPushPermission())
@@ -82,6 +83,34 @@ export function NotificationBell() {
       alert('Could not enable notifications on this device. Please try again.')
     } finally {
       setPushBusy(false)
+    }
+  }
+
+  const handleTestPush = async () => {
+    setTestBusy(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch('/api/push/test', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(data.error || 'Test failed. Try tapping Enable again.')
+        return
+      }
+      if (data.sent > 0) {
+        toast.success('Test sent — check your screen in a few seconds.')
+      } else {
+        alert(
+          'The server accepted the request but every device push failed.\n\n' +
+            (data.failed?.[0]?.message || 'The saved subscription may be stale — tap Enable again.')
+        )
+      }
+    } catch {
+      alert('Could not reach the server for the test.')
+    } finally {
+      setTestBusy(false)
     }
   }
 
@@ -256,6 +285,22 @@ export function NotificationBell() {
                 <BellRing className="h-3 w-3" />
               )}
               {pushPermission === 'denied' ? 'Blocked' : 'Enable'}
+            </Button>
+          </div>
+        )}
+        {pushSupported() && pushPermission === 'granted' && (
+          <div className="flex items-center justify-between gap-2 border-b bg-primary/5 px-3 py-2">
+            <p className="text-xs text-muted-foreground">Alerts on for this device.</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 shrink-0 gap-1 text-xs"
+              onClick={handleTestPush}
+              disabled={testBusy}
+            >
+              {testBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <BellRing className="h-3 w-3" />}
+              Send test
             </Button>
           </div>
         )}
