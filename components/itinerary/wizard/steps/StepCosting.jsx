@@ -41,6 +41,41 @@ function formatPrice(n) {
   return `₹${Number(n).toLocaleString('en-IN')}`
 }
 
+function formatDay(dateStr) {
+  const d = new Date(String(dateStr).slice(0, 10))
+  return isNaN(d.getTime())
+    ? String(dateStr).slice(0, 10)
+    : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+/** A date picker whose only choices are the dates already set on the Day-wise
+ * Plan — a re-check-in can only land on a day that's actually in the
+ * itinerary, so there's no free calendar, just those days. */
+function PlanDateSelect({ days, value, onChange }) {
+  const options = (days || [])
+    .map((d, i) => ({ dayNumber: d.dayNumber || i + 1, date: d.date ? String(d.date).slice(0, 10) : '' }))
+    .filter((o) => o.date)
+  return (
+    <Select value={value || ''} onValueChange={onChange}>
+      <SelectTrigger>
+        <SelectValue placeholder={options.length ? 'Select a day' : 'Set day dates first'} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.length === 0 && (
+          <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+            No dates on the Day-wise Plan yet.
+          </div>
+        )}
+        {options.map((o) => (
+          <SelectItem key={o.date} value={o.date}>
+            Day {o.dayNumber} · {formatDay(o.date)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 // Trip duration was already picked in the Details step (e.g. "4N/5D") — the
 // vehicle's "No. of days" should default to that instead of always starting at 1.
 function tripDaysFromForm(form) {
@@ -223,18 +258,18 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Check-in</Label>
-                    <Input
-                      type="date"
+                    <PlanDateSelect
+                      days={form.days}
                       value={stay.checkIn ? String(stay.checkIn).slice(0, 10) : ''}
-                      onChange={(e) => updateNightStay(stay, { checkIn: e.target.value, datesOverridden: true })}
+                      onChange={(v) => updateNightStay(stay, { checkIn: v, datesOverridden: true })}
                     />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Check-out</Label>
-                    <Input
-                      type="date"
+                    <PlanDateSelect
+                      days={form.days}
                       value={stay.checkOut ? String(stay.checkOut).slice(0, 10) : ''}
-                      onChange={(e) => updateNightStay(stay, { checkOut: e.target.value, datesOverridden: true })}
+                      onChange={(v) => updateNightStay(stay, { checkOut: v, datesOverridden: true })}
                     />
                   </div>
                 </div>
@@ -271,18 +306,18 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
                         <div className="space-y-1">
                           <Label className="text-xs">Return check-in</Label>
-                          <Input
-                            type="date"
+                          <PlanDateSelect
+                            days={form.days}
                             value={stay.reCheckIn ? String(stay.reCheckIn).slice(0, 10) : ''}
-                            onChange={(e) => updateNightStay(stay, { reCheckIn: e.target.value })}
+                            onChange={(v) => updateNightStay(stay, { reCheckIn: v })}
                           />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Return check-out</Label>
-                          <Input
-                            type="date"
+                          <PlanDateSelect
+                            days={form.days}
                             value={stay.reCheckOut ? String(stay.reCheckOut).slice(0, 10) : ''}
-                            onChange={(e) => updateNightStay(stay, { reCheckOut: e.target.value })}
+                            onChange={(v) => updateNightStay(stay, { reCheckOut: v })}
                           />
                         </div>
                       </div>
