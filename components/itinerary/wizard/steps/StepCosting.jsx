@@ -26,6 +26,7 @@ const HOTEL_ACCENTS = [
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select,
@@ -104,41 +105,6 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
     })
   }
 
-  // For a guest re-checking into a hotel later in the trip (e.g. Hotel A →
-  // Hotel B → back to Hotel A) — adds a second stay for the *same* hotel,
-  // right from that hotel's own card, so there's no dropdown to reselect it
-  // from (and no chance of picking the wrong one). Dates are left for the
-  // auto-chain effect above to fill in once nights are set.
-  const addAnotherStayForHotel = (sourceStay) => {
-    const master = hotelMasters.find((hm) => hm._id === sourceStay.hotelId)
-    const firstRoom = master?.rooms?.[0]
-    const newStay = {
-      location: sourceStay.location || '',
-      hotelName: sourceStay.hotelName || '',
-      hotelId: sourceStay.hotelId || '',
-      extraBedCharge: master?.extraBedCharge || sourceStay.extraBedCharge || 0,
-      cnbPrice: master?.cnbPrice || sourceStay.cnbPrice || 0,
-      roomLines: [
-        {
-          ...createDefaultRoomLine(),
-          roomType: firstRoom?.roomType || master?.roomType || '',
-          pricePerNight: firstRoom?.price ?? master?.price ?? 0,
-        },
-      ],
-      dayNumber: (form.nightStays?.length || 0) + 1,
-      ...(category ? { category } : {}),
-    }
-    // Appended at the very end, not spliced in right after the card it was
-    // cloned from — the date-chain effect above reads stays in this same
-    // array order, so inserting it in the middle used to shift every hotel
-    // that came after it (e.g. a re-check-in dropped between Hotel A and
-    // Hotel B pushed Hotel B's dates later). A re-check-in is, by
-    // definition, the *last* visit to that hotel, so the end of the list is
-    // also its correct chronological spot — the button lives on that hotel's
-    // own card just so it's obvious which hotel is being repeated, not to
-    // change where the new card ends up.
-    update({ nightStays: [...(form.nightStays || []), newStay] })
-  }
 
   return (
     <Card className="overflow-hidden border-border/60 shadow-sm">
@@ -148,8 +114,8 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
           <div>
             <CardTitle>{label ? `${label} — Night stays` : 'Night stays'}</CardTitle>
             <CardDescription>
-              A card appears automatically for every hotel picked in the Hotels step. Re-checking into one
-              later in the trip? Use "+ Add stay" on that hotel's own card below.
+              A card appears automatically for every hotel picked in the Hotels step. If the client returns
+              to one later in the trip, turn on "Re-check-in" on its card and add the return dates.
             </CardDescription>
           </div>
         </div>
@@ -285,9 +251,43 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                   </p>
                 ) : (
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    Auto-set from the trip's start date and each stay's Nights — edit here if a re-check-in
-                    needs a different order.
+                    Auto-set from the trip's start date and each stay's Nights — edit to override.
                   </p>
+                )}
+
+                {/* Re-check-in — the client comes back to this same hotel
+                  * later in the trip. Handled right here on the card (not as
+                  * a separate stay), with its own hand-entered return dates. */}
+                {stay.hotelId && (
+                  <div className="mt-3 rounded-lg border border-dashed p-2.5">
+                    <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
+                      <Switch
+                        checked={!!stay.hasReCheckIn}
+                        onCheckedChange={(v) => updateNightStay(stay, { hasReCheckIn: v })}
+                      />
+                      Client re-checks in to {stay.hotelName || 'this hotel'} later in the trip
+                    </label>
+                    {stay.hasReCheckIn && (
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Return check-in</Label>
+                          <Input
+                            type="date"
+                            value={stay.reCheckIn ? String(stay.reCheckIn).slice(0, 10) : ''}
+                            onChange={(e) => updateNightStay(stay, { reCheckIn: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Return check-out</Label>
+                          <Input
+                            type="date"
+                            value={stay.reCheckOut ? String(stay.reCheckOut).slice(0, 10) : ''}
+                            onChange={(e) => updateNightStay(stay, { reCheckOut: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -465,21 +465,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                 </div>
               </div>
 
-              <div className="flex items-center justify-between border-t px-3 py-1.5">
-                {stay.hotelId ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => addAnotherStayForHotel(stay)}
-                    className="gap-1 text-primary"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add stay (re-check-in at {stay.hotelName || 'this hotel'})
-                  </Button>
-                ) : (
-                  <span />
-                )}
+              <div className="flex justify-end border-t px-3 py-1.5">
                 <Button type="button" variant="ghost" size="sm" onClick={() => removeNightStay(stay)} className="text-destructive">
                   Remove stay
                 </Button>

@@ -185,12 +185,17 @@ const itinerarySchema = new mongoose.Schema(
         hotelName: String,
         hotelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel' },
         dayNumber: Number,
-        /** Explicit stay dates — set this to tell two visits to the same
-         * hotel (a re-check-in later in the trip) apart. Without these, a
-         * hotel used twice on non-consecutive nights used to be merged into
-         * one continuous-looking stay spanning the gap in between. */
+        /** Explicit stay dates for this visit (auto-derived by default,
+         * hand-set when `datesOverridden`). */
         checkIn: Date,
         checkOut: Date,
+        datesOverridden: Boolean,
+        /** The client returns to this same hotel later in the trip — a second
+         * visit handled on the same card (no separate stay entry). Its own
+         * dates are always entered by hand. */
+        hasReCheckIn: Boolean,
+        reCheckIn: Date,
+        reCheckOut: Date,
         /** Mirrors the linked hotel's budget-tier category (see `hotels.category`). */
         category: String,
         /** Once per stay (not per room type) — shared across whichever room lines are booked at this hotel. */
