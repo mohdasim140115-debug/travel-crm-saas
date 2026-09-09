@@ -11,6 +11,18 @@ import {
   budgetTierLabel,
 } from '@/modules/itinerary/studio'
 import { DURATION_PRESETS } from '@/lib/data/masterRepository'
+
+// Same rotating, strongly-tinted accent treatment as the Booking page's
+// Hotels section — keyed to the hotel itself (not raw card position), so a
+// re-check-in card always matches the color of that hotel's other card(s)
+// instead of just cycling to whatever the next color happens to be.
+const HOTEL_ACCENTS = [
+  { wrap: 'border-sky-500/30 border-l-sky-500 bg-sky-500/10', label: 'text-sky-500' },
+  { wrap: 'border-amber-500/30 border-l-amber-500 bg-amber-500/10', label: 'text-amber-500' },
+  { wrap: 'border-violet-500/30 border-l-violet-500 bg-violet-500/10', label: 'text-violet-500' },
+  { wrap: 'border-emerald-500/30 border-l-emerald-500 bg-emerald-500/10', label: 'text-emerald-500' },
+  { wrap: 'border-rose-500/30 border-l-rose-500 bg-rose-500/10', label: 'text-rose-500' },
+]
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -92,6 +104,42 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
     })
   }
 
+  // For a guest re-checking into a hotel later in the trip (e.g. Hotel A →
+  // Hotel B → back to Hotel A) — adds a second stay for the *same* hotel,
+  // right from that hotel's own card, so there's no dropdown to reselect it
+  // from (and no chance of picking the wrong one). Dates are left for the
+  // auto-chain effect above to fill in once nights are set.
+  const addAnotherStayForHotel = (sourceStay) => {
+    const master = hotelMasters.find((hm) => hm._id === sourceStay.hotelId)
+    const firstRoom = master?.rooms?.[0]
+    const newStay = {
+      location: sourceStay.location || '',
+      hotelName: sourceStay.hotelName || '',
+      hotelId: sourceStay.hotelId || '',
+      extraBedCharge: master?.extraBedCharge || sourceStay.extraBedCharge || 0,
+      cnbPrice: master?.cnbPrice || sourceStay.cnbPrice || 0,
+      roomLines: [
+        {
+          ...createDefaultRoomLine(),
+          roomType: firstRoom?.roomType || master?.roomType || '',
+          pricePerNight: firstRoom?.price ?? master?.price ?? 0,
+        },
+      ],
+      dayNumber: (form.nightStays?.length || 0) + 1,
+      ...(category ? { category } : {}),
+    }
+    // Appended at the very end, not spliced in right after the card it was
+    // cloned from — the date-chain effect above reads stays in this same
+    // array order, so inserting it in the middle used to shift every hotel
+    // that came after it (e.g. a re-check-in dropped between Hotel A and
+    // Hotel B pushed Hotel B's dates later). A re-check-in is, by
+    // definition, the *last* visit to that hotel, so the end of the list is
+    // also its correct chronological spot — the button lives on that hotel's
+    // own card just so it's obvious which hotel is being repeated, not to
+    // change where the new card ends up.
+    update({ nightStays: [...(form.nightStays || []), newStay] })
+  }
+
   return (
     <Card className="overflow-hidden border-border/60 shadow-sm">
       <CardHeader className="flex flex-col gap-3 space-y-0 border-b border-border/60 bg-linear-to-r from-primary/10 to-transparent sm:flex-row sm:items-center sm:justify-between">
@@ -100,10 +148,8 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
           <div>
             <CardTitle>{label ? `${label} — Night stays` : 'Night stays'}</CardTitle>
             <CardDescription>
-              {/* No "Add stay" button — every hotel picked in the Hotels step
-                * already shows up here on its own; a separate manual add just
-                * duplicated that with no real use of its own. */}
-              A card appears automatically for every hotel picked in the Hotels step.
+              A card appears automatically for every hotel picked in the Hotels step. Re-checking into one
+              later in the trip? Use "+ Add stay" on that hotel's own card below.
             </CardDescription>
           </div>
         </div>
@@ -115,7 +161,21 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
           </p>
         )}
         {stays.length === 0 && <p className="text-sm text-muted-foreground">No night stays added yet.</p>}
-        {stays.map((stay, i) => {
+        {(() => {
+          // First-appearance order of each distinct hotel in this tier's
+          // list — the color assigned here is what a re-check-in card reuses
+          // (see accent lookup below), so both cards for the same hotel
+          // always match.
+          const hotelColorOrder = []
+          for (const s of stays) {
+            const k = s.hotelId || s.hotelName
+            if (k && !hotelColorOrder.includes(k)) hotelColorOrder.push(k)
+          }
+          return stays.map((stay, i) => {
+          const colorKey = stay.hotelId || stay.hotelName
+          const accent = colorKey
+            ? HOTEL_ACCENTS[hotelColorOrder.indexOf(colorKey) % HOTEL_ACCENTS.length]
+            : null
           const master = hotelMasters.find((h) => h._id === stay.hotelId)
           const roomOptions = master?.rooms?.length
             ? master.rooms
@@ -131,10 +191,15 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
           const extraCost = getStayExtraCost(stay, master, extraBeds, cnbCount)
           const stayTotal = roomsTotal + extraCost
           return (
-            <div key={i} className="overflow-hidden rounded-xl border border-border/60 shadow-sm">
+            <div
+              key={i}
+              className={`overflow-hidden rounded-xl border-l-4 shadow-sm ${accent ? `border ${accent.wrap}` : 'border border-border/60'}`}
+            >
               <div className="bg-linear-to-r from-primary/10 to-transparent p-3">
-                <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                  <span className="h-3 w-1 rounded-full bg-primary" />
+                <p
+                  className={`mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide ${accent ? accent.label : 'text-primary'}`}
+                >
+                  <span className={`h-3 w-1 rounded-full ${accent ? accent.label.replace('text-', 'bg-') : 'bg-primary'}`} />
                   Property
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -190,7 +255,40 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                       onChange={(e) => updateNightStay(stay, { location: e.target.value })}
                     />
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Check-in</Label>
+                    <Input
+                      type="date"
+                      value={stay.checkIn ? String(stay.checkIn).slice(0, 10) : ''}
+                      onChange={(e) => updateNightStay(stay, { checkIn: e.target.value, datesOverridden: true })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Check-out</Label>
+                    <Input
+                      type="date"
+                      value={stay.checkOut ? String(stay.checkOut).slice(0, 10) : ''}
+                      onChange={(e) => updateNightStay(stay, { checkOut: e.target.value, datesOverridden: true })}
+                    />
+                  </div>
                 </div>
+                {stay.datesOverridden ? (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Set by hand — won't move on its own anymore.{' '}
+                    <button
+                      type="button"
+                      className="text-primary underline"
+                      onClick={() => updateNightStay(stay, { datesOverridden: false })}
+                    >
+                      Reset to auto
+                    </button>
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Auto-set from the trip's start date and each stay's Nights — edit here if a re-check-in
+                    needs a different order.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2 border-t px-3 pt-2">
@@ -367,14 +465,29 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                 </div>
               </div>
 
-              <div className="flex justify-end border-t px-3 py-1.5">
+              <div className="flex items-center justify-between border-t px-3 py-1.5">
+                {stay.hotelId ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => addAnotherStayForHotel(stay)}
+                    className="gap-1 text-primary"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add stay (re-check-in at {stay.hotelName || 'this hotel'})
+                  </Button>
+                ) : (
+                  <span />
+                )}
                 <Button type="button" variant="ghost" size="sm" onClick={() => removeNightStay(stay)} className="text-destructive">
                   Remove stay
                 </Button>
               </div>
             </div>
           )
-        })}
+          })
+        })()}
       </CardContent>
     </Card>
   )
@@ -582,6 +695,57 @@ export default function StepCosting({ form, update }) {
     update({ nightStays: next })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staySyncKey, hotelMasters.length])
+
+  // Check-in/check-out default to fully derived, chained dates: the first
+  // stay (per tier) starts on Day 1's own scheduled date from the Day-wise
+  // Plan (not the separate trip-level "start date" field, which can go
+  // stale), and every stay after it starts the moment the previous one's
+  // nights run out — in array order. That's right for the common case, but
+  // array order alone can't always capture the true sequence once a re-check
+  // -in is grouped next to its hotel's other card for editing (see "+ Add
+  // stay" above) rather than sitting at the true chronological spot in the
+  // list — e.g. Hotel A, then Hotel B, then back to Hotel A: putting the
+  // second Hotel A card right after the first one (for a tidy grouped view)
+  // means the chain would otherwise slot Hotel B's dates *after* both Hotel A
+  // visits, not between them. So: any stay the agent has hand-corrected here
+  // (`datesOverridden`) keeps its own dates exactly as set — the chain just
+  // continues from that stay's own check-out for whatever comes after it.
+  const tripAnchorDate = form.days?.[0]?.date ? String(form.days[0].date).slice(0, 10) : form.startDate
+  const nightsSequenceKey = (form.nightStays || [])
+    .map(
+      (s) =>
+        `${s.category || ''}:${s.datesOverridden ? `${s.checkIn}-${s.checkOut}` : Math.max(0, ...getRoomLines(s).map((l) => Number(l.nights) || 0))}`
+    )
+    .join('|')
+  useEffect(() => {
+    if (!tripAnchorDate) return
+    const nightStays = form.nightStays || []
+    const cursor = {} // category key ('' when tiers are off) -> next check-in date
+    let changed = false
+    const next = nightStays.map((s) => {
+      const catKey = s.category || ''
+      const nights = Math.max(1, ...getRoomLines(s).map((l) => Number(l.nights) || 0))
+
+      if (s.datesOverridden && s.checkIn) {
+        cursor[catKey] = s.checkOut || cursor[catKey] || tripAnchorDate
+        return s
+      }
+
+      if (cursor[catKey] === undefined) cursor[catKey] = tripAnchorDate
+      const checkInDate = new Date(cursor[catKey])
+      const checkIn = checkInDate.toISOString().slice(0, 10)
+      const checkOutDate = new Date(checkInDate)
+      checkOutDate.setDate(checkOutDate.getDate() + nights)
+      const checkOut = checkOutDate.toISOString().slice(0, 10)
+      cursor[catKey] = checkOut
+      if (s.checkIn === checkIn && s.checkOut === checkOut) return s
+      changed = true
+      return { ...s, checkIn, checkOut }
+    })
+    if (!changed) return
+    update({ nightStays: next })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nightsSequenceKey, tripAnchorDate])
 
   const selectedVehicle = vehicles.find((v) => v._id === selectedVehicleId)
   const selectedRoute = selectedVehicle?.routes?.[selectedRouteIndex]

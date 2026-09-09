@@ -43,6 +43,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { leadDisplayName, formatInr } from '@/utils/crm'
 import { toCompressedDataUrl } from '@/lib/imageCompress'
 
+// Rotates across a booking's hotels so each one is visually distinct —
+// saturated color tints (not a gray/muted shade, which barely showed up
+// against the card's own background in either theme).
+const HOTEL_ACCENTS = [
+  { wrap: 'border border-sky-500/30 border-l-4 border-l-sky-500 bg-sky-500/10', label: 'text-sky-500' },
+  { wrap: 'border border-amber-500/30 border-l-4 border-l-amber-500 bg-amber-500/10', label: 'text-amber-500' },
+  { wrap: 'border border-violet-500/30 border-l-4 border-l-violet-500 bg-violet-500/10', label: 'text-violet-500' },
+  { wrap: 'border border-emerald-500/30 border-l-4 border-l-emerald-500 bg-emerald-500/10', label: 'text-emerald-500' },
+  { wrap: 'border border-rose-500/30 border-l-4 border-l-rose-500 bg-rose-500/10', label: 'text-rose-500' },
+]
+
 const MEAL_PLANS = [
   { value: 'EP', label: 'EP — European Plan (room only)' },
   { value: 'CP', label: 'CP — Continental Plan (+breakfast)' },
@@ -699,7 +710,7 @@ export default function BookingDetailPage() {
           {(booking.hotelConfirmations || []).length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">No hotels on this booking's itinerary.</p>
           ) : (
-            booking.hotelConfirmations.map((item) => {
+            booking.hotelConfirmations.map((item, idx) => {
               const draft = hotelDrafts[item.key] || {}
               const editing = canEditOps && (!item.confirmed || editingHotelKey === item.key)
               const total =
@@ -707,10 +718,18 @@ export default function BookingDetailPage() {
                 (Number(draft.extraBedPrice) || 0) * (item.extraBeds || 0) * (item.nights || 1) +
                 (Number(draft.cnbPrice) || 0) * (item.cnbCount || 0) * (item.nights || 1) +
                 (Number(draft.extraCharge) || 0)
+              // Rotating, strongly-tinted (not just gray-muted) accent per
+              // hotel so two or more on one booking are unmistakable at a
+              // glance — a faint gray tint wasn't visible enough against the
+              // card's own background in either theme.
+              const accent = HOTEL_ACCENTS[idx % HOTEL_ACCENTS.length]
               return (
-                <div key={item.key} className="space-y-3 rounded-lg border p-4">
+                <div key={item.key} className={`space-y-3 rounded-lg p-4 ${accent.wrap}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
+                      <p className={`mb-1 text-lg font-extrabold uppercase tracking-wide ${accent.label}`}>
+                        Hotel {idx + 1}
+                      </p>
                       <p className="font-semibold">{item.name}</p>
                       {item.location && <p className="text-xs text-muted-foreground">{item.location}</p>}
                     </div>
