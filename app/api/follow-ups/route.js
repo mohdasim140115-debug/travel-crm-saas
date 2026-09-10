@@ -37,12 +37,26 @@ export async function GET(request) {
       query.status = 'pending'
     }
 
+    // The Follow-ups list page asks for every lead's *current* follow-up (no
+    // status, no leadId) and then keeps one row per lead client-side. Each
+    // reschedule leaves a `cancelled` tombstone behind (see POST below), so
+    // months in, those superseded records vastly outnumber the live ones —
+    // sorted oldest-first and capped at `limit`, they'd crowd a freshly
+    // scheduled (future-dated) follow-up right out of the response, and it
+    // would look like it vanished from "All". Excluding them here, and
+    // ordering by most-recently-touched, keeps the newest follow-ups in the
+    // window. Per-lead history views (they pass leadId) still get everything.
+    const isListView = !status && !leadId && !overdue
+    if (isListView) {
+      query.status = { $in: ['pending', 'completed'] }
+    }
+
     const [totalFollowUps, followUps] = await Promise.all([
       FollowUp.countDocuments(query),
       FollowUp.find(query)
         .populate('leadId', 'firstName lastName email phone status destination')
         .populate('assignedTo', 'name email avatar')
-        .sort({ scheduledDate: 1 })
+        .sort(isListView ? { updatedAt: -1 } : { scheduledDate: 1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),

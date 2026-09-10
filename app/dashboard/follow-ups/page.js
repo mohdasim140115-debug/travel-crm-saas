@@ -111,7 +111,7 @@ function FollowUpsContent() {
     try {
       const token = localStorage.getItem('token')
       const statusQuery = filter !== 'all' && filter !== 'today' ? `&status=${filter}` : ''
-      const response = await fetch(`/api/follow-ups?limit=50${statusQuery}`, {
+      const response = await fetch(`/api/follow-ups?limit=200${statusQuery}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await response.json()
