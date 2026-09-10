@@ -282,7 +282,7 @@ export default function FinancePage() {
               className="shadow-sm"
               style={{
                 background:
-                  'radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.35) 0%, rgba(245, 158, 11, 0.14) 18%, transparent 55%), linear-gradient(180deg, #232136 0%, #1f1e2e 100%)',
+                  'radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.35) 0%, rgba(245, 158, 11, 0.14) 18%, transparent 55%), var(--card)',
                 borderColor: 'rgba(245, 158, 11, 0.4)',
               }}
             >

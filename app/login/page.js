@@ -112,7 +112,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#16324a] via-[#0f2438] to-[#0B1C2D] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-background via-background to-primary/15 flex items-center justify-center p-4">
       {googleClientId && (
         <Script
           src="https://accounts.google.com/gsi/client"

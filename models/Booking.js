@@ -260,4 +260,14 @@ const bookingSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+// Booking is read on every Ops / Accounts / Owner / Finance / Sales dashboard
+// load — without these it was a full collection scan each time.
+bookingSchema.index({ teamId: 1, status: 1, createdAt: -1 })
+bookingSchema.index({ teamId: 1, assignedTo: 1, createdAt: -1 })
+bookingSchema.index({ teamId: 1, opsAssignedTo: 1 })
+bookingSchema.index({ teamId: 1, accountsAssignedTo: 1 })
+bookingSchema.index({ teamId: 1, startDate: 1 })
+bookingSchema.index({ leadId: 1 })
+bookingSchema.index({ itineraryId: 1 })
+
 export default mongoose.models.Booking || mongoose.model('Booking', bookingSchema)

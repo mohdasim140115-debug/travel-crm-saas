@@ -3,6 +3,7 @@ import Lead from '@/models/Lead'
 import Booking from '@/models/Booking'
 import Payment from '@/models/Payment'
 import User from '@/models/User'
+import FollowUp from '@/models/FollowUp'
 import { authenticate, requireRoles } from '@/lib/middleware'
 import mongoose from 'mongoose'
 
@@ -40,17 +41,37 @@ export async function GET(request) {
 
     const now = new Date()
     const sod = startOfDay(now)
+    const eod = new Date(sod)
+    eod.setUTCDate(eod.getUTCDate() + 1)
     const som = startOfMonth(now)
 
-    const [leadsToday, contactedToday, quotesToday, bookingsToday, leadsMonth, bookingsMonth] =
-      await Promise.all([
-        Lead.countDocuments({ ...q, createdAt: { $gte: sod } }),
-        Lead.countDocuments({ ...q, status: 'contacted', updatedAt: { $gte: sod } }),
-        Lead.countDocuments({ ...q, status: { $in: ['quoted', 'proposal_sent'] }, updatedAt: { $gte: sod } }),
-        Booking.countDocuments({ teamId: tid, createdAt: { $gte: sod } }),
-        Lead.countDocuments({ ...q, createdAt: { $gte: som } }),
-        Booking.countDocuments({ teamId: tid, createdAt: { $gte: som } }),
-      ])
+    // Follow-ups are scoped by their lead (a follow-up predates the teamId
+    // field on some records), same boundary the /api/follow-ups list uses.
+    const teamLeadIds = await Lead.distinct('_id', q)
+    const fuScope = { leadId: { $in: teamLeadIds } }
+    const fuPending = { ...fuScope, status: 'pending' }
+
+    const [
+      leadsToday,
+      contactedToday,
+      quotesToday,
+      bookingsToday,
+      leadsMonth,
+      bookingsMonth,
+      followUpsAll,
+      followUpsPending,
+      followUpsToday,
+    ] = await Promise.all([
+      Lead.countDocuments({ ...q, createdAt: { $gte: sod } }),
+      Lead.countDocuments({ ...q, status: 'contacted', updatedAt: { $gte: sod } }),
+      Lead.countDocuments({ ...q, status: { $in: ['quoted', 'proposal_sent'] }, updatedAt: { $gte: sod } }),
+      Booking.countDocuments({ teamId: tid, createdAt: { $gte: sod } }),
+      Lead.countDocuments({ ...q, createdAt: { $gte: som } }),
+      Booking.countDocuments({ teamId: tid, createdAt: { $gte: som } }),
+      FollowUp.countDocuments({ ...fuScope, status: { $ne: 'cancelled' } }),
+      FollowUp.countDocuments(fuPending),
+      FollowUp.countDocuments({ ...fuPending, scheduledDate: { $gte: sod, $lt: eod } }),
+    ])
 
     const salesUsers = await User.find({
       teamId: tid,
@@ -162,6 +183,11 @@ export async function GET(request) {
         leads: leadsMonth,
         bookings: bookingsMonth,
         revenue: payMonth[0]?.sum || 0,
+      },
+      followUps: {
+        all: followUpsAll,
+        pending: followUpsPending,
+        today: followUpsToday,
       },
       teamPerformance,
       tours: {

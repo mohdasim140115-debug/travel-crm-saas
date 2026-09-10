@@ -81,6 +81,14 @@ function FollowUpsContent() {
   const [bookOpen, setBookOpen] = useState(false)
   const [pendingFollowUpId, setPendingFollowUpId] = useState(null)
 
+  // Keep the tab in sync with the ?filter= query param — the dashboard's
+  // follow-up cards link here with ?filter=pending / today / all, and a
+  // client-side nav from one of those doesn't re-run the useState initializer.
+  useEffect(() => {
+    const f = searchParams.get('filter')
+    if (['today', 'all', 'pending'].includes(f)) setFilter(f)
+  }, [searchParams])
+
   useEffect(() => {
     fetchFollowUps()
   }, [filter])
@@ -213,15 +221,6 @@ function FollowUpsContent() {
     )
   }
 
-  // Strictly before today — matches the "Pending Follow-Ups" count on the
-  // Sales dashboard, so a follow-up scheduled for later this week doesn't
-  // show up under Pending before its own day arrives.
-  const isPastDue = (date) => {
-    const d = new Date(date)
-    const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    return d < startOfToday
-  }
 
   // Keep only one follow-up per lead: a still-pending one always wins (it's
   // the actionable one), regardless of whether a later-timestamped
@@ -248,11 +247,10 @@ function FollowUpsContent() {
     }
   }
 
-  // "Today" and "Pending" are mutually exclusive: a pending follow-up only
-  // shows under Today while it's scheduled for today. The moment its date
-  // passes without being actioned, it drops out of Today and appears under
-  // Pending instead — future-dated follow-ups show under neither until
-  // their day arrives (they're visible under "All").
+  // "Today" = pending follow-ups due today. "Pending" = every follow-up that
+  // still needs doing (pending status, any date — overdue, today, or upcoming),
+  // matching the owner dashboard's "pending follow-ups" count. "All" is the
+  // full history, completed rows included.
   const matchesSearch = (fu) => {
     const name = leadDisplayName(fu.leadId).toLowerCase()
     const q = searchTerm.toLowerCase()
@@ -264,7 +262,7 @@ function FollowUpsContent() {
   )
   const filteredFollowUps = visibleFollowUps.filter((fu) => {
     if (filter === 'today' && (fu.status !== 'pending' || !isToday(fu.scheduledDate))) return false
-    if (filter === 'pending' && (fu.status !== 'pending' || !isPastDue(fu.scheduledDate))) return false
+    if (filter === 'pending' && fu.status !== 'pending') return false
     return matchesSearch(fu)
   })
   // How many exist regardless of the today/pending bucket — so an empty
@@ -317,7 +315,7 @@ function FollowUpsContent() {
               {filter === 'today'
                 ? 'No follow-ups scheduled for today'
                 : filter === 'pending'
-                  ? 'No overdue follow-ups'
+                  ? 'No pending follow-ups'
                   : 'No follow-ups found'}
             </p>
             {filter !== 'all' && totalUnderAll > 0 && (
@@ -346,6 +344,12 @@ function FollowUpsContent() {
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {new Date(followUp.scheduledDate).toLocaleString()}
+                      </p>
+                      <p className="mt-1 text-xs">
+                        Assigned:{' '}
+                        <span className="font-medium">
+                          {followUp.leadId?.assignedTo?.name || followUp.assignedTo?.name || 'Unassigned'}
+                        </span>
                       </p>
                     </div>
                     <LeadStatusPill status={followUp.leadId?.status} statusOptions={statusOptions} />
@@ -382,6 +386,7 @@ function FollowUpsContent() {
                   <th className="text-left p-4 font-semibold">Scheduled</th>
                   <th className="text-left p-4 font-semibold">Remark</th>
                   <th className="text-left p-4 font-semibold">Status</th>
+                  <th className="text-left p-4 font-semibold">Assigned</th>
                   <th className="text-left p-4 font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -417,6 +422,11 @@ function FollowUpsContent() {
                             <LeadStatusPill status={lead?.status} statusOptions={statusOptions} />
                             {isOverdue && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
                           </div>
+                        </td>
+                        <td className="p-4 text-sm">
+                          {lead?.assignedTo?.name || followUp.assignedTo?.name || (
+                            <span className="text-muted-foreground">Unassigned</span>
+                          )}
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-3">

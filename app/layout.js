@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 import {
   SITE_URL,
@@ -77,9 +78,21 @@ export default function RootLayout({ children }) {
   // <body> before React hydrates — those mismatches were tripping Fast Refresh
   // into full page reloads in dev.
   return (
-    <html lang="en" className="bg-background" data-scroll-behavior="smooth">
+    <html
+      lang="en"
+      className="bg-background"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <body className={`${geist.className} font-sans antialiased`} suppressHydrationWarning>
-        {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

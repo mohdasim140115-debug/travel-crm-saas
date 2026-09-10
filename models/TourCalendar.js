@@ -130,4 +130,6 @@ const tourCalendarSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+tourCalendarSchema.index({ teamId: 1, startDate: -1 })
+
 export default mongoose.models.TourCalendar || mongoose.model('TourCalendar', tourCalendarSchema)

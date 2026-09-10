@@ -5,7 +5,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 export function ItineraryCardSkeleton() {
   return (
     <div className="overflow-hidden rounded-2xl border border-border/60 bg-card">
-      <Skeleton className="h-44 w-full rounded-none" />
+      <div className="space-y-2 border-b border-border/60 px-5 py-4">
+        <Skeleton className="h-5 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
       <div className="space-y-4 p-5">
         <div className="grid grid-cols-2 gap-3">
           <Skeleton className="h-10" />

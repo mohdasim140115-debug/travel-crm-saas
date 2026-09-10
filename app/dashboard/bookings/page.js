@@ -153,6 +153,9 @@ function BookingsPageContent() {
     // departure date has already passed), so fetch confirmed bookings and
     // filter by date client-side instead of asking the API for status=completed.
     const q = filter === 'completed' ? '?status=confirmed' : filter !== 'all' ? `?status=${filter}` : ''
+    // Show the skeleton while a new filter's data is in flight — without this
+    // the previous filter's rows stayed on screen, then popped.
+    setLoading(true)
     fetch(`/api/bookings${q}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => setBookings(d.bookings || []))

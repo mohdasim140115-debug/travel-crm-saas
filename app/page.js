@@ -76,7 +76,7 @@ function BookDemoDialog({ open, onOpenChange }) {
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         {done ? (
           <div className="py-6 text-center">
-            <PartyPopper className="mx-auto h-10 w-10 text-[#C0FF00]" />
+            <PartyPopper className="mx-auto h-10 w-10 text-accent-secondary" />
             <h3 className="mt-4 text-lg font-semibold">Thanks — request received!</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               Our team will reach out shortly to set up your workspace and walk you through a demo.
@@ -289,12 +289,12 @@ function HomeContent() {
         <div className="pointer-events-none absolute -top-40 left-1/2 h-[500px] w-[500px] -translate-x-1/2 glow-primary" />
         <div className="relative mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 lg:px-8 lg:py-28">
           <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/60 px-4 py-1.5 text-sm text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-[#C0FF00]" />
+            <Sparkles className="h-4 w-4 text-accent-secondary" />
             The all-in-one platform for travel agencies
           </div>
           <h1 className="mx-auto max-w-4xl text-balance text-4xl font-bold tracking-tight sm:text-6xl">
             Run your entire travel business from{' '}
-            <span className="text-[#C0FF00]">one beautiful workspace</span>
+            <span className="text-accent-secondary">one beautiful workspace</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-muted-foreground">
             Leads, itineraries, bookings, payments, and owner-controlled master settings — everything
@@ -303,7 +303,7 @@ function HomeContent() {
           <div className="mt-9 flex flex-row items-center justify-center gap-3">
             <Button
               size="lg"
-              className="flex-1 gap-2 bg-[#C0FF00] text-base text-black hover:bg-[#a8e000] sm:flex-none"
+              className="flex-1 gap-2 bg-accent-secondary text-base text-accent-secondary-foreground hover:bg-accent-secondary/90 sm:flex-none"
               onClick={() => setDemoOpen(true)}
             >
               Book a Demo <ArrowRight className="h-4 w-4" />
@@ -315,7 +315,7 @@ function HomeContent() {
             </a>
           </div>
           <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-[#C0FF00]" />
+            <ShieldCheck className="h-4 w-4 text-accent-secondary" />
             No credit card required · Multi-tenant & secure
           </div>
 
@@ -326,7 +326,7 @@ function HomeContent() {
                 key={s.label}
                 className="rounded-2xl border border-border bg-card/60 p-5 backdrop-blur"
               >
-                <div className="text-3xl font-bold text-[#C0FF00]">{s.value}</div>
+                <div className="text-3xl font-bold text-accent-secondary">{s.value}</div>
                 <div className="mt-1 text-sm text-muted-foreground">{s.label}</div>
               </div>
             ))}
@@ -353,7 +353,7 @@ function HomeContent() {
                 key={feature.title}
                 className="card-hover border-border/70 bg-card p-7"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#C0FF00]/10 text-[#C0FF00]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-secondary/10 text-accent-secondary">
                   <Icon className="h-6 w-6" />
                 </div>
                 <h3 className="mt-5 text-lg font-semibold">{feature.title}</h3>
@@ -381,7 +381,7 @@ function HomeContent() {
                   <div className="absolute -top-3 left-7 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
                     Step {i + 1}
                   </div>
-                  <Icon className="mt-2 h-8 w-8 text-[#C0FF00]" />
+                  <Icon className="mt-2 h-8 w-8 text-accent-secondary" />
                   <h3 className="mt-4 text-lg font-semibold">{step.title}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">{step.text}</p>
                 </div>
@@ -398,7 +398,7 @@ function HomeContent() {
           <div className="relative">
             <div className="mb-4 flex justify-center gap-1">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} className="h-5 w-5 fill-current text-[#C0FF00]" />
+                <Star key={i} className="h-5 w-5 fill-current text-accent-secondary" />
               ))}
             </div>
             <h2 className="text-3xl font-bold sm:text-4xl">Ready to grow your travel business?</h2>
@@ -408,7 +408,7 @@ function HomeContent() {
             <Button
               variant="secondary"
               size="lg"
-              className="mt-8 gap-2 bg-[#C0FF00] text-black hover:bg-[#a8e000]"
+              className="mt-8 gap-2 bg-accent-secondary text-accent-secondary-foreground hover:bg-accent-secondary/90"
               onClick={() => setDemoOpen(true)}
             >
               Book a Demo <ArrowRight className="h-4 w-4" />

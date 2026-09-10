@@ -188,6 +188,8 @@ const invoiceSchema = new mongoose.Schema(
 invoiceSchema.index({ teamId: 1, createdAt: -1 })
 // invoiceNumber is already indexed by its `unique: true` field option — a
 // second declaration here only produces a duplicate-index warning on boot.
-invoiceSchema.index({ paymentStatus: 1 })
+invoiceSchema.index({ teamId: 1, paymentStatus: 1, dueDate: 1 })
+invoiceSchema.index({ teamId: 1, invoiceType: 1 })
+invoiceSchema.index({ bookingId: 1 })
 
 export default mongoose.models.Invoice || mongoose.model('Invoice', invoiceSchema)

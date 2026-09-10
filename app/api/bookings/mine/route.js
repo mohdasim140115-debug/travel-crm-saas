@@ -37,9 +37,11 @@ export async function GET(request) {
       teamId: authResult.user.teamId,
       assignedTo: authResult.user.userId,
     })
+      .select('-activityConfirmations -paymentSchedule -otherExpenses -bookingDetails')
       .populate('leadId', 'firstName lastName email phone')
-      .populate('itineraryId', 'nightStays hotels vehicles vehicle')
+      .populate('itineraryId', 'tripName title destination nightStays hotels vehicles vehicle')
       .sort({ createdAt: -1 })
+      .limit(200)
       .lean()
 
     // Older double-submits could have created more than one Booking for the

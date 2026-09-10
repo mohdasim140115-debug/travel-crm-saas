@@ -54,7 +54,11 @@ export async function GET(request) {
     const [totalFollowUps, followUps] = await Promise.all([
       FollowUp.countDocuments(query),
       FollowUp.find(query)
-        .populate('leadId', 'firstName lastName email phone status destination')
+        .populate({
+          path: 'leadId',
+          select: 'firstName lastName email phone status destination assignedTo',
+          populate: { path: 'assignedTo', select: 'name email' },
+        })
         .populate('assignedTo', 'name email avatar')
         .sort(isListView ? { updatedAt: -1 } : { scheduledDate: 1 })
         .skip((page - 1) * limit)

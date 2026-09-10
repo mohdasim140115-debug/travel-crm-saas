@@ -308,17 +308,24 @@ export function itineraryToStudioForm(data) {
       ? 'custom'
       : '6N/7D'
 
+  // leadId comes back populated (an object with firstName/email/etc, not a
+  // bare id) whenever the itinerary was loaded via getItineraryFull — a plain
+  // String() on that object gave the literal string "[object Object]", which
+  // then failed the ObjectId cast on save.
+  const leadObj = it.leadId && typeof it.leadId === 'object' ? it.leadId : null
+  const leadName = leadObj
+    ? [leadObj.firstName, leadObj.lastName].filter(Boolean).join(' ').trim()
+    : ''
+
   return {
     ...DEFAULT_STUDIO_FORM,
     tripName: it.tripName || it.title || '',
-    customerName: it.customerName || '',
-    // leadId comes back populated (an object with firstName/email/etc, not a
-    // bare id) whenever the itinerary was loaded via getItineraryFull — a
-    // plain String() on that object gave the literal string "[object
-    // Object]", which then failed the ObjectId cast on save.
+    // Older itineraries didn't persist customerName separately — fall back to
+    // the linked lead's name so the "Client name" field isn't blank on edit.
+    customerName: it.customerName || leadName || '',
     leadId: it.leadId ? String(it.leadId._id || it.leadId) : '',
-    customerEmail: it.customerEmail || '',
-    phone: it.phone || '',
+    customerEmail: it.customerEmail || leadObj?.email || '',
+    phone: it.phone || leadObj?.phone || '',
     destination: it.destination || 'Kashmir',
     country: it.country || 'India',
     packageCategory: it.packageCategory || 'Silver',

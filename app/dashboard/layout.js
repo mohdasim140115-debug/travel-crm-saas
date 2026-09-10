@@ -42,6 +42,7 @@ import { getNavItems, ROLE_LABELS, getDashboardRoute, canAccessLeads } from '@/l
 import { Toaster } from '@/components/ui/sonner'
 import { ImpersonationBanner } from '@/components/crm/ImpersonationBanner'
 import { NotificationBell } from '@/components/crm/NotificationBell'
+import { ThemeToggle } from '@/components/crm/ThemeToggle'
 import { cn } from '@/lib/utils'
 
 export default function DashboardLayout({ children }) {
@@ -295,7 +296,7 @@ export default function DashboardLayout({ children }) {
 
   const sidebarContent = (
     <>
-      <div className="flex h-16 items-center justify-between border-b border-white/10 px-3">
+      <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-3">
         <div className="flex min-w-0 items-center gap-2">
           <div className={`relative h-9 shrink-0 overflow-hidden ${showExpandedSidebar ? 'w-35' : 'w-9'}`}>
             <Image
@@ -308,7 +309,7 @@ export default function DashboardLayout({ children }) {
           </div>
           {showExpandedSidebar && (
             <div className="min-w-0">
-              <p className="truncate text-xs capitalize text-white/60">
+              <p className="truncate text-xs capitalize text-sidebar-foreground/60">
                 {ROLE_LABELS[user.role] || user.role}
               </p>
             </div>
@@ -317,7 +318,7 @@ export default function DashboardLayout({ children }) {
         <button
           type="button"
           aria-label="Close menu"
-          className="rounded-lg p-2 text-white/70 hover:bg-white/10 lg:hidden"
+          className="rounded-lg p-2 text-sidebar-foreground/70 hover:bg-sidebar-accent lg:hidden"
           onClick={() => setMobileNavOpen(false)}
         >
           <X className="h-5 w-5" />
@@ -326,7 +327,7 @@ export default function DashboardLayout({ children }) {
           <button
             type="button"
             aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="rounded-lg p-2 text-white/70 hover:bg-white/10"
+            className="rounded-lg p-2 text-sidebar-foreground/70 hover:bg-sidebar-accent"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
             {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -345,10 +346,10 @@ export default function DashboardLayout({ children }) {
             <Link key={item.href} href={item.href} onClick={() => setMobileNavOpen(false)}>
               <div
                 className={cn(
-                  'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 transition-all duration-200 ease-out',
+                  'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground/80 transition-all duration-200 ease-out',
                   active
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm ring-1 ring-sidebar-primary/40'
-                    : !navScrolling && 'hover:translate-x-1 hover:bg-white/5 hover:text-white active:bg-white/10'
+                    : !navScrolling && 'hover:translate-x-1 hover:bg-sidebar-accent hover:text-sidebar-foreground active:bg-sidebar-accent'
                 )}
               >
                 <Icon className="h-5 w-5 shrink-0" />
@@ -359,12 +360,12 @@ export default function DashboardLayout({ children }) {
         })}
       </nav>
 
-      <div className="space-y-3 border-t border-white/10 px-4 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)' }}>
+      <div className="space-y-3 border-t border-sidebar-border px-4 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)' }}>
         {showExpandedSidebar && brands.length > 0 && (
           <div className="space-y-1">
-            <label className="px-1 text-xs uppercase tracking-wide text-white/50">Brand</label>
+            <label className="px-1 text-xs uppercase tracking-wide text-sidebar-foreground/50">Brand</label>
             <Select value={brandValue} onValueChange={onBrandChange}>
-              <SelectTrigger className="w-full border-white/15 bg-white/5 text-white">
+              <SelectTrigger className="w-full border-sidebar-border bg-sidebar-accent text-sidebar-foreground">
                 <SelectValue placeholder="All brands" />
               </SelectTrigger>
               <SelectContent>
@@ -386,15 +387,15 @@ export default function DashboardLayout({ children }) {
           </div>
           {showExpandedSidebar && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{user.name}</p>
-              <p className="truncate text-xs text-white/60">{user.email}</p>
+              <p className="truncate text-sm font-medium text-sidebar-foreground">{user.name}</p>
+              <p className="truncate text-xs text-sidebar-foreground/60">{user.email}</p>
             </div>
           )}
         </div>
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+          className="w-full justify-start border-sidebar-border bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
           onClick={handleLogout}
         >
           <LogOut className="mr-2 h-4 w-4 shrink-0" />
@@ -463,6 +464,7 @@ export default function DashboardLayout({ children }) {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <ThemeToggle />
             <NotificationBell />
             <div className="hidden items-center gap-2 text-xs text-muted-foreground lg:flex">
               <span className="rounded-full border px-2 py-1">

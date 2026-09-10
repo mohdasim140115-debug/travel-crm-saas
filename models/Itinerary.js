@@ -242,6 +242,9 @@ const itinerarySchema = new mongoose.Schema(
 
 itinerarySchema.index({ teamId: 1, status: 1, createdAt: -1 })
 itinerarySchema.index({ teamId: 1, destination: 1 })
+// The Itineraries list sorts the whole workspace by most-recently-updated.
+itinerarySchema.index({ teamId: 1, updatedAt: -1 })
+itinerarySchema.index({ teamId: 1, createdBy: 1, updatedAt: -1 })
 itinerarySchema.pre('save', function syncTitle() {
   if (this.tripName && !this.title) this.title = this.tripName
   if (this.title && !this.tripName) this.tripName = this.title

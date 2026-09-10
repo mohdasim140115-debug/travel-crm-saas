@@ -61,7 +61,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#1a0b2e] via-[#12081f] to-[#0B0714] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-background via-background to-primary/15 flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-6 sm:p-8">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">

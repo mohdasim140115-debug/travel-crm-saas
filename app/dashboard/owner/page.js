@@ -15,6 +15,8 @@ import {
   ArrowRight,
   Scale,
   Trophy,
+  Bell,
+  CalendarClock,
 } from 'lucide-react'
 import { PageHeader } from '@/components/crm/PageHeader'
 
@@ -58,6 +60,7 @@ export default function OwnerDashboardPage() {
   const today = data?.today || {}
   const month = data?.thisMonth || {}
   const team = data?.teamPerformance || []
+  const followUps = data?.followUps || {}
 
   return (
     <div className="space-y-8">
@@ -123,6 +126,47 @@ export default function OwnerDashboardPage() {
               </Card>
             )
           })()}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-lg font-semibold">Follow-ups</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          {[
+            {
+              label: "Today's follow-ups",
+              value: followUps.today,
+              icon: CalendarClock,
+              href: '/dashboard/follow-ups?filter=today',
+            },
+            {
+              label: 'Pending follow-ups',
+              value: followUps.pending,
+              icon: Bell,
+              href: '/dashboard/follow-ups?filter=pending',
+            },
+            {
+              label: 'Total follow-ups',
+              value: followUps.all,
+              icon: FileText,
+              href: '/dashboard/follow-ups?filter=all',
+            },
+          ].map((s) => {
+            const Icon = s.icon
+            return (
+              <Link key={s.label} href={s.href}>
+                <Card className="gap-1 py-3 transition-shadow hover:shadow-md sm:gap-6 sm:py-6">
+                  <CardHeader className="flex flex-row items-center justify-between px-3 pb-0 sm:px-6 sm:pb-2">
+                    <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">{s.label}</CardTitle>
+                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent className="px-3 sm:px-6">
+                    <div className="text-xl font-bold text-accent-secondary sm:text-2xl">{s.value ?? 0}</div>
+                  </CardContent>
+                </Card>
+              </Link>
+            )
+          })}
         </div>
       </div>
 

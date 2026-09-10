@@ -39,14 +39,33 @@ export async function GET(request) {
 
     if (canOnlyViewOwnLeads(authResult.user.role)) {
       query.assignedTo = new mongoose.Types.ObjectId(String(authResult.user.userId))
-    } else if (assignedTo) {
-      query.assignedTo = assignedTo
+    } else if (assignedTo === 'unassigned') {
+      query.assignedTo = null
+    } else if (assignedTo && mongoose.Types.ObjectId.isValid(assignedTo)) {
+      query.assignedTo = new mongoose.Types.ObjectId(String(assignedTo))
+    }
+
+    // `?counts=1` → just the per-status breakdown (for the filter dropdown),
+    // done as one aggregation instead of shipping every lead document to the
+    // client to be counted there.
+    if (searchParams.get('counts')) {
+      const { status: _s, ...countQuery } = query
+      const rows = await Lead.aggregate([
+        { $match: countQuery },
+        { $group: { _id: '$status', n: { $sum: 1 } } },
+      ])
+      const counts = {}
+      for (const r of rows) counts[r._id] = r.n
+      return Response.json({ counts })
     }
 
     const skip = (page - 1) * limit
 
     const [leads, total] = await Promise.all([
       Lead.find(query)
+        // The list renders a compact row — the status-history log, attachments
+        // and freeform metadata blob are only needed on the lead detail page.
+        .select('-statusHistory -attachments -metadata')
         .populate('assignedTo', 'name email')
         .sort({ createdAt: -1 })
         .skip(skip)

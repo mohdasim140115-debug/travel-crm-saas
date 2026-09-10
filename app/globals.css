@@ -4,7 +4,87 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Premium dark-purple theme */
+  /* radius is theme-independent */
+  --radius: 1rem;
+}
+
+/* ============================================================
+   LIGHT THEME — the default when <html> has no `.dark` class.
+   Every surface is white / near-white, every text token is a
+   dark ink that clears 4.5:1 on its background. The purple
+   brand (#8a2be1) and the accents are kept but re-tuned so
+   they stay readable on white.
+   ============================================================ */
+:root,
+.light {
+  color-scheme: light;
+
+  --background: #f6f6fa;
+  --foreground: #17151f;
+  --card: #ffffff;
+  --card-foreground: #17151f;
+  --popover: #ffffff;
+  --popover-foreground: #17151f;
+
+  /* Primary: purple brand accent */
+  --primary: #7c22ce;
+  --primary-foreground: #ffffff;
+
+  /* Secondary: light lavender-grey surface */
+  --secondary: #efecf7;
+  --secondary-foreground: #2b2540;
+
+  /* Muted */
+  --muted: #efecf7;
+  --muted-foreground: #625d75;
+
+  /* Accent: same light surface, used for hover / highlights */
+  --accent: #efecf7;
+  --accent-foreground: #2b2540;
+
+  /* Semantic status colors (badges/toasts) */
+  --success: #15803d;
+  --success-foreground: #ffffff;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+  --info: #2563eb;
+  --info-foreground: #ffffff;
+
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+
+  --border: rgba(23, 21, 31, 0.12);
+  --input: rgba(23, 21, 31, 0.16);
+  --ring: #7c22ce;
+
+  /* Secondary accent — the neon lime reads as invisible on white, so in
+     light mode it becomes a deep leaf-green (still the "2nd series" pop). */
+  --accent-secondary: #4d7c0f;
+  --accent-secondary-foreground: #ffffff;
+
+  /* Chart colors — purple family, green as the 2nd series on light */
+  --chart-1: #7c22ce;
+  --chart-2: #16a34a;
+  --chart-3: #9333ea;
+  --chart-4: #c084fc;
+  --chart-5: #6b21a8;
+
+  /* Sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #17151f;
+  --sidebar-primary: #7c22ce;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #efecf7;
+  --sidebar-accent-foreground: #2b2540;
+  --sidebar-border: rgba(23, 21, 31, 0.1);
+  --sidebar-ring: #7c22ce;
+}
+
+/* ============================================================
+   DARK THEME — the original "premium dark-purple" look.
+   ============================================================ */
+.dark {
+  color-scheme: dark;
   --background: #0b0b10;
   --foreground: #f5f6fb;
   --card: #151420;
@@ -12,23 +92,18 @@
   --popover: #151420;
   --popover-foreground: #f5f6fb;
 
-  /* Primary: purple brand accent */
   --primary: #8a2be1;
   --primary-foreground: #f5f6fb;
 
-  /* Secondary: dark surface */
   --secondary: #1f1e2e;
   --secondary-foreground: #f5f6fb;
 
-  /* Muted */
   --muted: #1f1e2e;
   --muted-foreground: #808097;
 
-  /* Accent: same dark surface, used for hover / highlights */
   --accent: #1f1e2e;
   --accent-foreground: #f5f6fb;
 
-  /* Semantic status colors (badges/toasts) */
   --success: #568203;
   --success-foreground: #f5f6fb;
   --warning: #f59e0b;
@@ -43,67 +118,12 @@
   --input: rgba(255, 255, 255, 0.06);
   --ring: #8a2be1;
 
-  /* Secondary accent — neon lime, used sparingly as a pop against the
-     purple primary (a 2nd chart series, standout badges/tags). */
+  /* Neon lime — only legible against the dark surfaces. */
   --accent-secondary: #b6ff3b;
   --accent-secondary-foreground: #0b0b10;
 
-  /* Chart colors — purple family, with the lime accent as the 2nd series */
   --chart-1: #8a2be1;
   --chart-2: #b6ff3b;
-  --chart-3: #6d28d9;
-  --chart-4: #c084fc;
-  --chart-5: #4c1d95;
-
-  --radius: 1rem;
-
-  /* Sidebar */
-  --sidebar: #111118;
-  --sidebar-foreground: #f5f6fb;
-  --sidebar-primary: #8a2be1;
-  --sidebar-primary-foreground: #f5f6fb;
-  --sidebar-accent: #1f1e2e;
-  --sidebar-accent-foreground: #f5f6fb;
-  --sidebar-border: rgba(255, 255, 255, 0.06);
-  --sidebar-ring: #8a2be1;
-}
-
-.dark {
-  --background: #0b0b10;
-  --foreground: #f5f6fb;
-  --card: #151420;
-  --card-foreground: #f5f6fb;
-  --popover: #151420;
-  --popover-foreground: #f5f6fb;
-
-  --primary: #8a2be1;
-  --primary-foreground: #f5f6fb;
-
-  --secondary: #1f1e2e;
-  --secondary-foreground: #f5f6fb;
-
-  --muted: #1f1e2e;
-  --muted-foreground: #808097;
-
-  --accent: #1f1e2e;
-  --accent-foreground: #f5f6fb;
-
-  --success: #568203;
-  --success-foreground: #f5f6fb;
-  --warning: #f59e0b;
-  --warning-foreground: #1a1300;
-  --info: #3b82f6;
-  --info-foreground: #f5f6fb;
-
-  --destructive: #f59e0b;
-  --destructive-foreground: #1a1300;
-
-  --border: rgba(255, 255, 255, 0.06);
-  --input: rgba(255, 255, 255, 0.06);
-  --ring: #8a2be1;
-
-  --chart-1: #8a2be1;
-  --chart-2: #a855f7;
   --chart-3: #6d28d9;
   --chart-4: #c084fc;
   --chart-5: #4c1d95;
@@ -251,16 +271,16 @@
   }
   .sidebar-nav-scroll:hover {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+    scrollbar-color: color-mix(in oklab, var(--sidebar-foreground) 28%, transparent) transparent;
   }
   .sidebar-nav-scroll:hover::-webkit-scrollbar {
     width: 6px;
   }
   .sidebar-nav-scroll:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.3);
+    background-color: color-mix(in oklab, var(--sidebar-foreground) 28%, transparent);
   }
   .sidebar-nav-scroll:hover::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.45);
+    background-color: color-mix(in oklab, var(--sidebar-foreground) 45%, transparent);
   }
 
   /* Same hover-reveal thin scrollbar, but for light-background panels (uses
@@ -325,23 +345,37 @@
 
   /* Ambient bottom-left purple glow baked into the card surface itself
      (not just a hover effect) — layered radial + linear gradient so it
-     reads as premium lighting rather than a flat fill. */
+     reads as premium lighting rather than a flat fill. Light mode keeps the
+     same idea with a barely-there purple wash over a white card so text
+     stays black-on-white readable. */
   [data-slot='card'] {
     background:
-      radial-gradient(circle at bottom left, rgba(138, 43, 225, 0.45) 0%, rgba(138, 43, 225, 0.18) 18%, transparent 55%),
-      linear-gradient(180deg, #232136 0%, #1f1e2e 100%);
+      radial-gradient(circle at bottom left, color-mix(in oklab, var(--primary) 8%, transparent) 0%, transparent 55%),
+      var(--card);
     border-radius: 18px;
-    border-color: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    border-color: var(--border);
+    box-shadow: 0 8px 24px -12px color-mix(in oklab, var(--foreground) 20%, transparent);
     transition:
       box-shadow 180ms ease-out,
       transform 180ms ease-out;
   }
+  .dark [data-slot='card'] {
+    background:
+      radial-gradient(circle at bottom left, rgba(138, 43, 225, 0.45) 0%, rgba(138, 43, 225, 0.18) 18%, transparent 55%),
+      linear-gradient(180deg, #232136 0%, #1f1e2e 100%);
+    border-color: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  }
   [data-slot='card']:hover {
+    box-shadow:
+      0 8px 24px -12px color-mix(in oklab, var(--foreground) 22%, transparent),
+      0 0 40px color-mix(in oklab, var(--primary) 18%, transparent);
+    transform: translateY(-2px);
+  }
+  .dark [data-slot='card']:hover {
     box-shadow:
       0 8px 30px rgba(0, 0, 0, 0.35),
       0 0 40px rgba(138, 43, 225, 0.25);
-    transform: translateY(-2px);
   }
 
   [data-slot='input']:focus-visible,

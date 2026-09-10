@@ -73,6 +73,17 @@ export async function listItineraries(authUser, options = {}) {
   const skip = (page - 1) * limit
   const [items, total] = await Promise.all([
     Itinerary.find(query)
+      // The list only renders a small card (name, dates, destination, status,
+      // banner). The heavy embedded arrays — the full day-wise plan, hotels,
+      // activities, gallery, the T&C / marketing prose — can be hundreds of KB
+      // per document; pulling 12 of those was what made this page crawl. Drop
+      // them here; the detail/edit page still loads the full document.
+      .select(
+        '-days -hotels -activities -flights -transfers -vehicles -gallery ' +
+          '-inclusions -exclusions -termsAndConditions -marketingOverview ' +
+          '-cancellationPolicy -supplements -categoryTotals -nightStays ' +
+          '-extraCharges -vehicleDetails -notes'
+      )
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email')
       .populate('leadId', 'firstName lastName email')

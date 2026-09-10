@@ -74,6 +74,8 @@ export async function GET(request) {
       .select(
         'totalAmount hotelConfirmations vehicleConfirmations activityConfirmations otherExpenses itineraryId leadId bookingNumber'
       )
+      .sort({ createdAt: -1 })
+      .limit(2000)
       .lean()
 
     const bookingIds = bookings.map((b) => b._id)

@@ -65,4 +65,8 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+paymentSchema.index({ teamId: 1, status: 1, createdAt: -1 })
+paymentSchema.index({ teamId: 1, type: 1 })
+paymentSchema.index({ bookingId: 1 })
+
 export default mongoose.models.Payment || mongoose.model('Payment', paymentSchema)

@@ -72,7 +72,7 @@ export default function LeadDetailPage({ params }) {
         fetch(`/api/leads/${id}/timeline`, { headers: { Authorization: `Bearer ${t}` } }),
         fetch(`/api/itineraries?leadId=${id}&limit=20`, { headers: { Authorization: `Bearer ${t}` } }),
         fetch(`/api/follow-ups?leadId=${id}&limit=20`, { headers: { Authorization: `Bearer ${t}` } }),
-        fetch(`/api/bookings?limit=50`, { headers: { Authorization: `Bearer ${t}` } }),
+        fetch(`/api/bookings?leadId=${id}&limit=20`, { headers: { Authorization: `Bearer ${t}` } }),
       ])
 
       const leadData = await leadRes.json()
@@ -98,7 +98,7 @@ export default function LeadDetailPage({ params }) {
       setFollowUps(fu.followUps || [])
 
       const bk = await bkRes.json()
-      setBookings((bk.bookings || []).filter((b) => String(b.leadId?._id || b.leadId) === id))
+      setBookings(bk.bookings || [])
     } catch (e) {
       toast.error(e.message)
     } finally {

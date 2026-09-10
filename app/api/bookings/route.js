@@ -8,6 +8,7 @@ import Itinerary from '@/models/Itinerary'
 import Payment from '@/models/Payment'
 import Invoice from '@/models/Invoice'
 import ItineraryDay from '@/models/ItineraryDay'
+import mongoose from 'mongoose'
 import { authenticate, requireRoles } from '@/lib/middleware'
 import { assignByRoleRoundRobin } from '@/lib/assignRoundRobin'
 import {
@@ -34,11 +35,13 @@ export async function GET(request) {
     await connectDB()
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
+    const leadId = searchParams.get('leadId')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
 
     const query = { teamId: authResult.user.teamId }
     if (status) query.status = status
+    if (leadId && mongoose.Types.ObjectId.isValid(leadId)) query.leadId = leadId
     // Each booking round-robins to exactly one Operations and one Accounts
     // employee — without this filter every teammate in that role would see
     // every booking in the workspace, not just the one routed to them.
@@ -128,8 +131,31 @@ export async function GET(request) {
       const planRange = planRangeByItinerary.get(String(b.itineraryId?._id || b.itineraryId))
       const advInv = advanceInvoiceByBooking.get(String(b._id))
       const activityConfirmations = computeActivityConfirmations(b, b.itineraryId)
+      // The confirmation arrays (some carry base64 screenshots) and the
+      // itinerary's full night-stay/hotel data are only needed to *derive* the
+      // status flags below — the list page never renders the raw rows, so keep
+      // them out of the response payload.
+      const {
+        hotelConfirmations,
+        vehicleConfirmations,
+        activityConfirmations: _ac,
+        paymentSchedule,
+        bookingDetails,
+        otherExpenses,
+        itineraryId,
+        ...slim
+      } = b
       return {
-        ...b,
+        ...slim,
+        itineraryId: itineraryId
+          ? {
+              _id: itineraryId._id || itineraryId,
+              tripName: itineraryId.tripName,
+              title: itineraryId.title,
+              destination: itineraryId.destination,
+              totalPrice: itineraryId.totalPrice,
+            }
+          : null,
         startDate: planRange?.start || b.startDate,
         endDate: planRange?.end || b.endDate,
         hotelStatus: deriveStatus(computeHotelConfirmations(b, b.itineraryId)),

@@ -152,7 +152,7 @@ export default function SalesDashboardPage() {
                 style={
                   alertRgb
                     ? {
-                        background: `radial-gradient(circle at bottom left, rgba(${alertRgb}, 0.45) 0%, rgba(${alertRgb}, 0.18) 18%, transparent 55%), linear-gradient(180deg, #232136 0%, #1f1e2e 100%)`,
+                        background: `radial-gradient(circle at bottom left, rgba(${alertRgb}, 0.4) 0%, rgba(${alertRgb}, 0.14) 18%, transparent 55%), var(--card)`,
                         borderColor: `rgba(${alertRgb}, 0.4)`,
                       }
                     : undefined
@@ -179,14 +179,14 @@ export default function SalesDashboardPage() {
           className="h-full gap-1 py-3 sm:gap-3 sm:py-4"
           style={{
             background:
-              'radial-gradient(circle at bottom left, rgba(182, 255, 59, 0.35) 0%, rgba(182, 255, 59, 0.14) 18%, transparent 55%), linear-gradient(180deg, #232136 0%, #1f1e2e 100%)',
-            borderColor: 'rgba(182, 255, 59, 0.35)',
+              'radial-gradient(circle at bottom left, color-mix(in oklab, var(--accent-secondary) 30%, transparent) 0%, color-mix(in oklab, var(--accent-secondary) 12%, transparent) 18%, transparent 55%), var(--card)',
+            borderColor: 'color-mix(in oklab, var(--accent-secondary) 35%, transparent)',
           }}
         >
           <CardHeader className="flex flex-col items-center gap-1 px-2 pb-0 text-center sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:px-4 sm:pb-0 sm:text-left">
             <TrendingUp
               className="order-first h-4 w-4 shrink-0 text-muted-foreground sm:order-last"
-              style={{ color: '#b6ff3b' }}
+              style={{ color: 'var(--accent-secondary)' }}
             />
             <CardTitle className="w-full truncate text-[11px] leading-tight font-medium text-muted-foreground sm:text-xs">
               My Performance

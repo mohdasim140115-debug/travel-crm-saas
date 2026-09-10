@@ -96,4 +96,8 @@ const followUpSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+followUpSchema.index({ leadId: 1, status: 1 })
+followUpSchema.index({ teamId: 1, assignedTo: 1, status: 1, scheduledDate: 1 })
+followUpSchema.index({ status: 1, scheduledDate: 1, reminderSent: 1 })
+
 export default mongoose.models.FollowUp || mongoose.model('FollowUp', followUpSchema)

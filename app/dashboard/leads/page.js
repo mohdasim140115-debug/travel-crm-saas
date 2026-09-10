@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Trash2, Edit2, Eye, Filter, ArrowUpDown, MessageSquare, Phone, Mail, Loader2, Calendar as CalendarIcon } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, Eye, Filter, ArrowUpDown, MessageSquare, Phone, Mail, Loader2, Users, Calendar as CalendarIcon } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -29,6 +29,7 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [filterAssigned, setFilterAssigned] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
   const [statusCounts, setStatusCounts] = useState({})
   const [showModal, setShowModal] = useState(false)
@@ -141,11 +142,11 @@ export default function LeadsPage() {
       fetchLeads()
     }, 300)
     return () => clearTimeout(t)
-  }, [filterStatus, searchTerm])
+  }, [filterStatus, searchTerm, filterAssigned])
 
   useEffect(() => {
     fetchStatusCounts()
-  }, [searchTerm])
+  }, [searchTerm, filterAssigned])
 
   const fetchLeads = async () => {
     try {
@@ -153,6 +154,7 @@ export default function LeadsPage() {
       const token = localStorage.getItem('token')
       const params = new URLSearchParams({ limit: '200' })
       if (filterStatus !== 'all') params.set('status', filterStatus)
+      if (filterAssigned !== 'all') params.set('assignedTo', filterAssigned)
       if (searchTerm.trim()) params.set('search', searchTerm.trim())
 
       const response = await fetch(`/api/leads?${params.toString()}`, {
@@ -179,18 +181,15 @@ export default function LeadsPage() {
   const fetchStatusCounts = async () => {
     try {
       const token = localStorage.getItem('token')
-      const params = new URLSearchParams({ limit: '1000' })
+      const params = new URLSearchParams({ counts: '1' })
       if (searchTerm.trim()) params.set('search', searchTerm.trim())
+      if (filterAssigned !== 'all') params.set('assignedTo', filterAssigned)
       const response = await fetch(`/api/leads?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (response.ok) {
         const data = await response.json()
-        const counts = {}
-        for (const lead of data.leads || []) {
-          counts[lead.status] = (counts[lead.status] || 0) + 1
-        }
-        setStatusCounts(counts)
+        setStatusCounts(data.counts || {})
       }
     } catch (error) {
       console.error('Error fetching status counts:', error)
@@ -473,6 +472,29 @@ export default function LeadsPage() {
             </SelectContent>
           </Select>
 
+          {canAssign && (
+            <Select value={filterAssigned} onValueChange={setFilterAssigned}>
+              <SelectTrigger
+                className="w-[44px] shrink-0 justify-center border border-border px-0 sm:w-[180px] sm:justify-between sm:px-3"
+                aria-label="Filter by employee"
+              >
+                <Users className="h-4 w-4 shrink-0 text-muted-foreground sm:hidden" />
+                <span className="hidden sm:inline">
+                  <SelectValue />
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All employees</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {[...salesMembers, ...opsMembers, ...accountsMembers].map((m) => (
+                  <SelectItem key={m._id} value={m._id}>
+                    {m.name || m.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger
               className="w-[44px] shrink-0 justify-center border border-border px-0 sm:w-[180px] sm:justify-between sm:px-3"
@@ -491,36 +513,6 @@ export default function LeadsPage() {
           </Select>
         </div>
 
-        {/* Per-status counts — click to filter straight to that status. One
-            row, horizontally scrollable, instead of wrapping into a wall of
-            pill rows on narrow screens. */}
-        <div className="scroll-hover-thin mt-3 flex flex-nowrap gap-2 overflow-x-auto pb-1">
-          <button
-            type="button"
-            onClick={() => setFilterStatus('all')}
-            className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-              filterStatus === 'all'
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-background text-muted-foreground hover:bg-muted'
-            }`}
-          >
-            All ({Object.values(statusCounts).reduce((a, b) => a + b, 0)})
-          </button>
-          {statusOptions.map((status) => (
-            <button
-              key={status.key}
-              type="button"
-              onClick={() => setFilterStatus(status.key)}
-              className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                filterStatus === status.key
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-background text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              {status.label} ({statusCounts[status.key] || 0})
-            </button>
-          ))}
-        </div>
       </Card>
 
       {/* Leads Table */}
