@@ -5,9 +5,26 @@ import { comparePasswords } from '@/lib/auth'
 import { issueSession, publicUser } from '@/lib/session'
 import { isSubscriptionExpired } from '@/lib/subscription'
 
+/** One transient Atlas blip (failover, dropped idle socket) used to bubble
+ * straight up to the catch below and show the user "Internal server error"
+ * even though nothing was actually wrong. Retry the connect + lookup once
+ * after a short pause before giving up. */
+async function findUserByEmail(email) {
+  let lastErr
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await connectDB()
+      return await User.findOne({ email })
+    } catch (e) {
+      lastErr = e
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 400))
+    }
+  }
+  throw lastErr
+}
+
 export async function POST(request) {
   try {
-    await connectDB()
     const body = await request.json()
     const { email, password } = body
 
@@ -18,7 +35,7 @@ export async function POST(request) {
       )
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() })
+    const user = await findUserByEmail(email.toLowerCase())
     if (!user) {
       return Response.json(
         { error: 'Invalid credentials' },
@@ -86,8 +103,10 @@ export async function POST(request) {
       }
     }
 
+    // Best-effort — a failed "last login" timestamp write must never block a
+    // valid sign-in (it used to 500 the whole request on a transient blip).
     user.lastLogin = new Date()
-    await user.save()
+    user.save().catch((e) => console.error('lastLogin update failed:', e.message))
 
     const ua = request.headers.get('user-agent') || ''
     const ip =
@@ -111,9 +130,20 @@ export async function POST(request) {
     )
   } catch (error) {
     console.error('Login error:', error)
+    // A database connectivity hiccup isn't the user's fault — tell them to
+    // retry rather than showing a scary generic error.
+    const name = error?.name || ''
+    const transient =
+      /Mongo|Timeout|PoolCleared|ECONNRESET|ETIMEDOUT|connection/i.test(
+        `${name} ${error?.message || ''}`
+      )
     return Response.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      {
+        error: transient
+          ? 'Server is busy right now. Please try again in a moment.'
+          : 'Internal server error',
+      },
+      { status: transient ? 503 : 500 }
     )
   }
 }
