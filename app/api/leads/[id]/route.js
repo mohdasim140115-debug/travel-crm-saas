@@ -13,6 +13,7 @@ import { authenticate, requireLeadAccess } from '@/lib/middleware'
 import { canOnlyViewOwnLeads } from '@/lib/permissions'
 import { tenantFilter } from '@/lib/tenant'
 import { notifyUser } from '@/lib/notify'
+import { notifyMetaLeadStatusChange } from '@/lib/metaCapi/sendConversionEvent'
 import mongoose from 'mongoose'
 
 function leadAccessQuery(authUser, id) {
@@ -121,6 +122,14 @@ export async function PUT(request, { params }) {
 
     await lead.save()
     await lead.populate('assignedTo', 'name email')
+
+    // Fire-and-forget: report this status change to Meta if the lead came
+    // from Meta and the new status is one that's mapped (see
+    // lib/metaCapi/config.js). Never awaited for the response and never
+    // allowed to fail the CRM update — see sendConversionEvent.js.
+    if (statusChanged) {
+      notifyMetaLeadStatusChange({ lead, newStatus: lead.status, previousStatus: prevStatus }).catch(() => {})
+    }
 
     // Follow-ups are only actionable while a lead is still in play. Once the
     // status moves to a resting point, any still-pending follow-up on it must

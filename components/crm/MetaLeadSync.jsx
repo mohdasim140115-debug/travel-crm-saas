@@ -41,6 +41,8 @@ export function MetaLeadSync() {
   const [testResults, setTestResults] = useState(null)
   const [salesMembers, setSalesMembers] = useState([])
   const [assignBusy, setAssignBusy] = useState('')
+  const [capiDatasetId, setCapiDatasetId] = useState('')
+  const [capiAccessToken, setCapiAccessToken] = useState('')
 
   const load = async () => {
     const res = await apiFetch('/api/admin/meta-sync')
@@ -48,6 +50,7 @@ export function MetaLeadSync() {
     const data = await res.json()
     setConfig(data)
     setFormIds((data.formIds || []).join(', '))
+    setCapiDatasetId(data.capi?.datasetId || '')
   }
 
   useEffect(() => {
@@ -128,6 +131,21 @@ export function MetaLeadSync() {
   const handleToggle = async (next) => {
     setBusy('toggle')
     await save({ enabled: next })
+    setBusy('')
+  }
+
+  const handleCapiSave = async () => {
+    setBusy('capi-save')
+    const patch = { capiDatasetId }
+    if (capiAccessToken.trim()) patch.capiAccessToken = capiAccessToken.trim()
+    const ok = await save(patch)
+    if (ok) setCapiAccessToken('')
+    setBusy('')
+  }
+
+  const handleCapiToggle = async (next) => {
+    setBusy('capi-toggle')
+    await save({ capiEnabled: next })
     setBusy('')
   }
 
@@ -338,6 +356,57 @@ export function MetaLeadSync() {
         <code className="rounded bg-muted px-1">leads_retrieval</code> permission — use a long-lived
         one, a short-lived token expires in about an hour and the sync starts failing.
       </p>
+
+      <div className="space-y-3 rounded-lg border p-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Conversions API — send status back to Meta</p>
+            <p className="text-xs text-muted-foreground">
+              When one of your Meta leads is marked Contacted or Booked in this CRM, tell Meta so
+              its ad delivery learns which leads actually convert. Your own Dataset ID + token —
+              never shared with other workspaces.
+            </p>
+          </div>
+          <Switch
+            checked={!!config.capi?.enabled}
+            disabled={busy === 'capi-toggle'}
+            onCheckedChange={handleCapiToggle}
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label className="text-xs">Dataset ID</Label>
+            <Input
+              placeholder="e.g. 987654321098765"
+              value={capiDatasetId}
+              onChange={(e) => setCapiDatasetId(e.target.value)}
+              className="font-mono text-xs"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">
+              Conversions API Access Token
+              {config.capi?.hasToken && (
+                <span className="ml-2 text-success">saved {config.capi.tokenPreview}</span>
+              )}
+            </Label>
+            <PasswordInput
+              placeholder={config.capi?.hasToken ? 'Saved — type to replace' : 'EAAG...'}
+              value={capiAccessToken}
+              onChange={(e) => setCapiAccessToken(e.target.value)}
+              className="font-mono text-xs"
+            />
+          </div>
+        </div>
+        <Button size="sm" onClick={handleCapiSave} disabled={busy === 'capi-save'}>
+          {busy === 'capi-save' && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+          Save Conversions API Settings
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Dataset ID &amp; token: Meta Events Manager → Data Sources → your dataset → Settings.
+          This is separate from the Page Access Token above.
+        </p>
+      </div>
       </CardContent>
     </Card>
   )

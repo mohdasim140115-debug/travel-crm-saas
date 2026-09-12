@@ -50,6 +50,14 @@ function publicConfig(team) {
     lastSyncCreated: cfg.lastSyncCreated || 0,
     totalSynced: cfg.totalSynced || 0,
     lastLeadCreatedTime: cfg.lastLeadCreatedTime || null,
+    // Conversions API — CRM → Meta status feedback, this team's own dataset/token.
+    capi: {
+      enabled: !!cfg.capiEnabled,
+      datasetId: cfg.capiDatasetId || '',
+      hasToken: !!decryptToken(cfg.capiAccessTokenEnc),
+      tokenPreview: maskToken(decryptToken(cfg.capiAccessTokenEnc)),
+      tokenSavedAt: cfg.capiTokenSavedAt || null,
+    },
   }
 }
 
@@ -178,6 +186,34 @@ export async function PATCH(request) {
     // should trigger by accident.
     if (body.resetWatermark === true) {
       team.metaSync.lastLeadCreatedTime = undefined
+    }
+
+    // Conversions API — this team's own Dataset ID + access token, saved the
+    // same write-only way as the Page Access Token above (omit to keep what's
+    // already stored, send an empty string to clear it).
+    if (body.capiDatasetId !== undefined) {
+      team.metaSync.capiDatasetId = String(body.capiDatasetId).trim() || undefined
+    }
+    if (body.capiAccessToken !== undefined) {
+      const t = String(body.capiAccessToken).trim()
+      if (t) {
+        team.metaSync.capiAccessTokenEnc = encryptToken(t)
+        team.metaSync.capiTokenSavedAt = new Date()
+      } else {
+        team.metaSync.capiAccessTokenEnc = undefined
+        team.metaSync.capiTokenSavedAt = undefined
+        team.metaSync.capiEnabled = false
+      }
+    }
+    if (body.capiEnabled !== undefined) {
+      const wantOn = !!body.capiEnabled
+      if (wantOn && !team.metaSync.capiAccessTokenEnc) {
+        return Response.json({ error: 'Save a Conversions API access token before turning it on' }, { status: 400 })
+      }
+      if (wantOn && !team.metaSync.capiDatasetId) {
+        return Response.json({ error: 'Add a Dataset ID before turning Conversions API on' }, { status: 400 })
+      }
+      team.metaSync.capiEnabled = wantOn
     }
 
     await team.save()

@@ -11,6 +11,7 @@ import ItineraryDay from '@/models/ItineraryDay'
 import mongoose from 'mongoose'
 import { authenticate, requireRoles } from '@/lib/middleware'
 import { assignByRoleRoundRobin } from '@/lib/assignRoundRobin'
+import { notifyMetaLeadStatusChange } from '@/lib/metaCapi/sendConversionEvent'
 import {
   computeHotelConfirmations,
   computeVehicleConfirmations,
@@ -303,10 +304,23 @@ export async function POST(request) {
     })
 
     if (body.leadId) {
-      await Lead.findOneAndUpdate(
+      const bookedLead = await Lead.findOneAndUpdate(
         { _id: body.leadId, teamId: authResult.user.teamId },
-        { status: 'booked' }
-      )
+        { status: 'booked' },
+        { new: true }
+      ).select('ingestChannel externalId email phone firstName lastName teamId status')
+
+      // Fire-and-forget: a booking is the real conversion — report it to
+      // Meta as a Purchase (see lib/metaCapi/config.js) when this lead came
+      // from Meta. Never awaited and never allowed to fail the booking.
+      if (bookedLead) {
+        notifyMetaLeadStatusChange({
+          lead: bookedLead,
+          newStatus: 'booked',
+          custom: { value: booking.totalAmount, currency: booking.currency },
+        }).catch(() => {})
+      }
+
       // The lead is booked now — any still-pending follow-up on it is done.
       // Closing them here, at the one place every booking path goes through
       // (Leads list, Lead detail, Follow-ups page), is what actually keeps a

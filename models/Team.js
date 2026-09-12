@@ -158,6 +158,16 @@ const teamSchema = new mongoose.Schema(
       lastSyncError: String,
       lastSyncCreated: { type: Number, default: 0 },
       totalSynced: { type: Number, default: 0 },
+
+      /**
+       * Meta Conversions API — CRM → Meta status feedback, per team (every
+       * agency has its own Meta Business dataset). Same encryption scheme as
+       * accessTokenEnc above; never returned to the browser.
+       */
+      capiEnabled: { type: Boolean, default: false },
+      capiDatasetId: String,
+      capiAccessTokenEnc: String,
+      capiTokenSavedAt: Date,
     },
 
     settings: {
