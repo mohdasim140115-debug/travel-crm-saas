@@ -128,6 +128,19 @@ const teamSchema = new mongoose.Schema(
       enabled: { type: Boolean, default: false },
       /** One or more Lead Ads form IDs to poll. */
       formIds: [String],
+      /** Per-form override: round-robin that form's leads among only the
+       * chosen employees instead of the whole team. A form with no entry
+       * here, or an empty `assignedTo` list, means "All employees" — keeps
+       * auto-assigning across the whole team as before. `roundRobinIndex` is
+       * this form's own rotation position, independent of the team-wide one. */
+      formAssignments: [
+        {
+          _id: false,
+          formId: String,
+          assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+          roundRobinIndex: { type: Number, default: 0 },
+        },
+      ],
       /**
        * Page access token, AES-256-GCM encrypted at rest — it grants read
        * access to the agency's leads, so it never sits in the DB in plaintext

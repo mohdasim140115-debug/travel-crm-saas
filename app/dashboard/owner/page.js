@@ -137,19 +137,19 @@ export default function OwnerDashboardPage() {
               label: "Today's follow-ups",
               value: followUps.today,
               icon: CalendarClock,
-              href: '/dashboard/follow-ups?filter=today',
+              href: '/dashboard/leads?followUp=today',
             },
             {
               label: 'Pending follow-ups',
               value: followUps.pending,
               icon: Bell,
-              href: '/dashboard/follow-ups?filter=pending',
+              href: '/dashboard/leads?followUp=any',
             },
             {
               label: 'Total follow-ups',
               value: followUps.all,
               icon: FileText,
-              href: '/dashboard/follow-ups?filter=all',
+              href: '/dashboard/leads',
             },
           ].map((s) => {
             const Icon = s.icon

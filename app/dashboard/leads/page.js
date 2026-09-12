@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Trash2, Edit2, Eye, Filter, ArrowUpDown, MessageSquare, Phone, Mail, Loader2, Users, Calendar as CalendarIcon } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, Eye, Filter, ArrowUpDown, MessageSquare, Phone, Mail, Loader2, Users, Bell, Calendar as CalendarIcon } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -14,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarPicker } from '@/components/ui/calendar'
+import { TimeSelect } from '@/components/ui/time-select'
 import { TableShell } from '@/components/crm/TableShell'
 import { LeadPreviewDrawer } from '@/components/crm/LeadPreviewDrawer'
 import { LeadItinerariesDialog } from '@/components/crm/LeadItinerariesDialog'
@@ -24,12 +26,43 @@ import { mutateJson } from '@/lib/mutate'
 import { displayEmail, isPlaceholderEmail } from '@/utils/crm'
 import { pickerToIso } from '@/lib/datetime'
 
+// A lead's currently-scheduled (pending) follow-up date — blank if none was
+// ever added, red once overdue, solid yellow if it's due today.
+function FollowUpCell({ date }) {
+  if (!date) return <span className="text-muted-foreground">—</span>
+  const d = new Date(date)
+  const now = new Date()
+  const isToday =
+    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+  const overdue = !isToday && d.getTime() < now.getTime()
+  const colorClass = overdue
+    ? 'bg-destructive/15 text-destructive'
+    : isToday
+      ? 'bg-yellow-400 text-yellow-950'
+      : 'bg-warning/15 text-warning'
+  return (
+    <span className={`inline-block whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold ${colorClass}`}>
+      {format(d, 'MMM d, h:mm a')}
+    </span>
+  )
+}
+
 export default function LeadsPage() {
+  return (
+    <Suspense fallback={null}>
+      <LeadsContent />
+    </Suspense>
+  )
+}
+
+function LeadsContent() {
+  const searchParams = useSearchParams()
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterAssigned, setFilterAssigned] = useState('all')
+  const [filterFollowUp, setFilterFollowUp] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
   const [statusCounts, setStatusCounts] = useState({})
   const [showModal, setShowModal] = useState(false)
@@ -100,6 +133,14 @@ export default function LeadsPage() {
     setRemarksOpen(true)
   }
 
+  // The dashboard's follow-up cards (Owner/Sales) link here with
+  // ?followUp=today|pending|any — pick that up so the filter dropdown
+  // actually reflects it instead of always resetting to "All follow-ups".
+  useEffect(() => {
+    const f = searchParams.get('followUp')
+    if (['all', 'any', 'today', 'pending'].includes(f)) setFilterFollowUp(f)
+  }, [searchParams])
+
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}')
@@ -142,7 +183,7 @@ export default function LeadsPage() {
       fetchLeads()
     }, 300)
     return () => clearTimeout(t)
-  }, [filterStatus, searchTerm, filterAssigned])
+  }, [filterStatus, searchTerm, filterAssigned, filterFollowUp])
 
   useEffect(() => {
     fetchStatusCounts()
@@ -155,6 +196,7 @@ export default function LeadsPage() {
       const params = new URLSearchParams({ limit: '200' })
       if (filterStatus !== 'all') params.set('status', filterStatus)
       if (filterAssigned !== 'all') params.set('assignedTo', filterAssigned)
+      if (filterFollowUp !== 'all') params.set('followUp', filterFollowUp)
       if (searchTerm.trim()) params.set('search', searchTerm.trim())
 
       const response = await fetch(`/api/leads?${params.toString()}`, {
@@ -462,7 +504,16 @@ export default function LeadsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">
-                All Status ({Object.values(statusCounts).reduce((a, b) => a + b, 0)})
+                {/* Sales staff never see Booked/Completed leads under "All
+                    Status" (they've moved on to Operations) — the count here
+                    must match that, or "All Status (13)" showing only 2 rows
+                    looks like a bug. */}
+                All Status (
+                {Object.entries(statusCounts).reduce(
+                  (sum, [key, n]) => (!isOwner && CLOSED_STATUSES.includes(key) ? sum : sum + n),
+                  0
+                )}
+                )
               </SelectItem>
               {statusOptions.map((status) => (
                 <SelectItem key={status.key} value={status.key}>
@@ -494,6 +545,24 @@ export default function LeadsPage() {
               </SelectContent>
             </Select>
           )}
+
+          <Select value={filterFollowUp} onValueChange={setFilterFollowUp}>
+            <SelectTrigger
+              className="w-[44px] shrink-0 justify-center border border-border px-0 sm:w-[180px] sm:justify-between sm:px-3"
+              aria-label="Filter by follow-up"
+            >
+              <Bell className="h-4 w-4 shrink-0 text-muted-foreground sm:hidden" />
+              <span className="hidden sm:inline">
+                <SelectValue />
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All follow-ups</SelectItem>
+              <SelectItem value="any">Total follow-up</SelectItem>
+              <SelectItem value="today">Today's follow-up</SelectItem>
+              <SelectItem value="pending">Pending follow-up</SelectItem>
+            </SelectContent>
+          </Select>
 
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger
@@ -542,6 +611,9 @@ export default function LeadsPage() {
                     <p className="mt-1 text-sm">{lead.phone || '—'}</p>
                   </div>
                   <Badge variant="outline" className="shrink-0 capitalize">{lead.status}</Badge>
+                </div>
+                <div className="mt-2">
+                  <FollowUpCell date={lead.nextFollowUpDate} />
                 </div>
                 {canAssign && (
                   <div className="mt-3 flex items-center justify-between gap-2">
@@ -624,6 +696,7 @@ export default function LeadsPage() {
                   <th className="text-left p-4 font-semibold">Phone</th>
                   <th className="text-left p-4 font-semibold">Status</th>
                   <th className="text-left p-4 font-semibold">Source</th>
+                  <th className="text-left p-4 font-semibold">Follow-up</th>
                   {canAssign && <th className="text-left p-4 font-semibold">Assigned</th>}
                   <th className="text-left p-4 font-semibold">Actions</th>
                 </tr>
@@ -657,6 +730,9 @@ export default function LeadsPage() {
                       })()}
                     </td>
                     <td className="p-4">{labelize(lead.source)}</td>
+                    <td className="p-4">
+                      <FollowUpCell date={lead.nextFollowUpDate} />
+                    </td>
                     {canAssign && (
                       <td className="p-4">
                         <Select
@@ -955,12 +1031,10 @@ export default function LeadsPage() {
                       />
                       <div className="flex items-center gap-2 border-t p-3">
                         <label className="shrink-0 text-xs">Time</label>
-                        <Input
-                          type="time"
-                          className="h-8"
+                        <TimeSelect
                           value={formData.followUpDate ? formData.followUpDate.slice(11, 16) : ''}
-                          onChange={(e) => {
-                            const [hh, mm] = e.target.value.split(':').map(Number)
+                          onChange={(timeStr) => {
+                            const [hh, mm] = timeStr.split(':').map(Number)
                             const base = formData.followUpDate ? new Date(formData.followUpDate) : new Date()
                             base.setHours(hh, mm)
                             setFormData({ ...formData, followUpDate: format(base, "yyyy-MM-dd'T'HH:mm") })

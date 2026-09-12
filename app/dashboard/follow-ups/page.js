@@ -18,6 +18,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarPicker } from '@/components/ui/calendar'
+import { TimeSelect } from '@/components/ui/time-select'
 import { Calendar, Phone, Mail, Eye, AlertCircle, Pencil, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -524,12 +525,10 @@ function FollowUpsContent() {
                     />
                     <div className="flex items-center gap-2 border-t p-3">
                       <Label className="shrink-0 text-xs">Time</Label>
-                      <Input
-                        type="time"
-                        className="h-8"
+                      <TimeSelect
                         value={editForm.scheduledDate ? editForm.scheduledDate.slice(11, 16) : ''}
-                        onChange={(e) => {
-                          const [hh, mm] = e.target.value.split(':').map(Number)
+                        onChange={(timeStr) => {
+                          const [hh, mm] = timeStr.split(':').map(Number)
                           const base = editForm.scheduledDate ? new Date(editForm.scheduledDate) : new Date()
                           base.setHours(hh, mm)
                           setEditForm((f) => ({ ...f, scheduledDate: format(base, "yyyy-MM-dd'T'HH:mm") }))

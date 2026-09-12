@@ -129,14 +129,14 @@ export default function SalesDashboardPage() {
             label: 'Pending Follow-Ups',
             value: today.pendingFollowUps,
             icon: Bell,
-            href: '/dashboard/follow-ups?filter=pending',
+            href: '/dashboard/leads?followUp=pending',
             alert: 'info',
           },
           {
             label: "Today's Follow-Ups",
             value: today.todayFollowUps,
             icon: CalendarClock,
-            href: '/dashboard/follow-ups?filter=today',
+            href: '/dashboard/leads?followUp=today',
           },
           { label: 'Bookings Closed', value: today.bookingsClosed, icon: Calendar, href: '/dashboard/sales/bookings' },
         ].map((s) => {
@@ -256,7 +256,7 @@ export default function SalesDashboardPage() {
               Due Follow-Ups
             </CardTitle>
             <Button asChild variant="ghost" size="sm">
-              <Link href="/dashboard/follow-ups">Schedule</Link>
+              <Link href="/dashboard/leads?followUp=any">Schedule</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -266,7 +266,7 @@ export default function SalesDashboardPage() {
               data.dueFollowUps.map((fu) => (
                 <Link
                   key={fu._id}
-                  href={fu.leadId?._id ? `/dashboard/leads/${fu.leadId._id}` : '/dashboard/follow-ups'}
+                  href={fu.leadId?._id ? `/dashboard/leads/${fu.leadId._id}` : '/dashboard/leads?followUp=any'}
                   className="block rounded-lg bg-muted/50 p-3 hover:bg-muted"
                 >
                   <p className="truncate font-medium capitalize">

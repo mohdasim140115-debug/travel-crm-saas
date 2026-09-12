@@ -1,5 +1,6 @@
 import connectDB from '@/lib/mongodb'
 import Lead from '@/models/Lead'
+import FollowUp from '@/models/FollowUp'
 import { authenticate, requireLeadAccess } from '@/lib/middleware'
 import { canOnlyViewOwnLeads } from '@/lib/permissions'
 import { tenantFilter } from '@/lib/tenant'
@@ -59,6 +60,27 @@ export async function GET(request) {
       return Response.json({ counts })
     }
 
+    // `?followUp=` — "any" → has an active follow-up scheduled at all (any
+    // date: overdue, today, or upcoming). "today" → due today only.
+    // "pending" → strictly overdue (date already passed). "Today" and
+    // "Pending" are non-overlapping buckets; "any" is their union.
+    const followUpFilter = searchParams.get('followUp')
+    if (followUpFilter === 'any' || followUpFilter === 'today' || followUpFilter === 'pending') {
+      const candidateLeadIds = await Lead.distinct('_id', query)
+      const fuQuery = { leadId: { $in: candidateLeadIds }, status: 'pending' }
+      const now = new Date()
+      const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      if (followUpFilter === 'today') {
+        const eod = new Date(sod.getTime() + 86400000)
+        fuQuery.scheduledDate = { $gte: sod, $lt: eod }
+      } else if (followUpFilter === 'pending') {
+        fuQuery.scheduledDate = { $lt: sod }
+      }
+      // followUpFilter === 'any': no extra date bound — every active follow-up counts.
+      const matchingLeadIds = await FollowUp.distinct('leadId', fuQuery)
+      query._id = { $in: matchingLeadIds }
+    }
+
     const skip = (page - 1) * limit
 
     const [leads, total] = await Promise.all([
@@ -73,6 +95,27 @@ export async function GET(request) {
         .lean(),
       Lead.countDocuments(query),
     ])
+
+    // Attach each visible lead's current (pending) follow-up date, if any —
+    // the list shows it in its own column so a sales person doesn't have to
+    // open every lead to see what's scheduled.
+    if (leads.length) {
+      const pendingFollowUps = await FollowUp.find({
+        leadId: { $in: leads.map((l) => l._id) },
+        status: 'pending',
+      })
+        .select('leadId scheduledDate')
+        .sort({ scheduledDate: 1 })
+        .lean()
+      const followUpByLead = new Map()
+      for (const fu of pendingFollowUps) {
+        const key = String(fu.leadId)
+        if (!followUpByLead.has(key)) followUpByLead.set(key, fu.scheduledDate)
+      }
+      for (const lead of leads) {
+        lead.nextFollowUpDate = followUpByLead.get(String(lead._id)) || null
+      }
+    }
 
     return Response.json({
       leads,

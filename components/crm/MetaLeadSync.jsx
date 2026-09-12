@@ -8,7 +8,9 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { PasswordInput } from '@/components/ui/password-input'
-import { CheckCircle2, XCircle, Loader2, RefreshCw, PlugZap } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
+import { CheckCircle2, XCircle, Loader2, RefreshCw, PlugZap, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/auth-client'
 
@@ -37,6 +39,8 @@ export function MetaLeadSync() {
   const [accessToken, setAccessToken] = useState('')
   const [busy, setBusy] = useState('')
   const [testResults, setTestResults] = useState(null)
+  const [salesMembers, setSalesMembers] = useState([])
+  const [assignBusy, setAssignBusy] = useState('')
 
   const load = async () => {
     const res = await apiFetch('/api/admin/meta-sync')
@@ -48,7 +52,29 @@ export function MetaLeadSync() {
 
   useEffect(() => {
     load()
+    apiFetch('/api/team/members')
+      .then((r) => (r.ok ? r.json() : { members: [] }))
+      .then((d) => setSalesMembers((d.members || []).filter((m) => ['agent', 'manager'].includes(m.role))))
+      .catch(() => {})
   }, [])
+
+  // Empty list = "All employees" (the normal team-wide round robin);
+  // otherwise this form only rotates among the listed ids.
+  const poolForForm = (formId) =>
+    (config?.formAssignments || []).find((a) => a.formId === formId)?.assignedTo || []
+
+  const setFormPool = async (formId, employeeIds) => {
+    setAssignBusy(formId)
+    const others = (config?.formAssignments || []).filter((a) => a.formId !== formId)
+    const next = [...others, { formId, assignedTo: employeeIds }]
+    await save({ formAssignments: next }, { silent: true })
+    setAssignBusy('')
+    toast.success(
+      employeeIds.length
+        ? `Form ${formId} now round-robins among ${employeeIds.length} selected employee(s)`
+        : `Form ${formId} back to All employees (round robin)`
+    )
+  }
 
   const save = async (patch, { silent = false } = {}) => {
     const res = await apiFetch('/api/admin/meta-sync', {
@@ -231,6 +257,28 @@ export function MetaLeadSync() {
         </Button>
       </div>
 
+      {config.formIds?.length > 0 && (
+        <div className="space-y-2 rounded-lg border p-3">
+          <p className="text-xs font-medium">
+            Route each form's leads — pick "All employees" for the normal round robin, or select
+            just the employees this form should rotate among
+          </p>
+          <div className="space-y-2">
+            {config.formIds.map((formId) => (
+              <div key={formId} className="flex items-center justify-between gap-3">
+                <span className="truncate font-mono text-xs text-muted-foreground">{formId}</span>
+                <FormPoolPicker
+                  members={salesMembers}
+                  selected={poolForForm(formId)}
+                  disabled={assignBusy === formId}
+                  onChange={(ids) => setFormPool(formId, ids)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {testResults && (
         <div className="space-y-1 rounded border bg-background p-3 text-xs">
           {testResults.map((r) => (
@@ -292,5 +340,63 @@ export function MetaLeadSync() {
       </p>
       </CardContent>
     </Card>
+  )
+}
+
+/** Multi-select checklist: "All employees" clears the pool (team-wide round
+ * robin); ticking anyone else narrows the form to just those checked. */
+function FormPoolPicker({ members, selected, disabled, onChange }) {
+  const [open, setOpen] = useState(false)
+  const isAll = selected.length === 0
+  const label = isAll
+    ? 'All employees'
+    : selected.length === 1
+      ? members.find((m) => m._id === selected[0])?.name || '1 selected'
+      : `${selected.length} employees selected`
+
+  const toggle = (id) => {
+    if (selected.includes(id)) {
+      onChange(selected.filter((s) => s !== id))
+    } else {
+      onChange([...selected, id])
+    }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          className="h-8 w-56 justify-between text-xs font-normal"
+        >
+          <span className="truncate">{label}</span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-56 p-2">
+        <label className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent">
+          <Checkbox checked={isAll} onCheckedChange={() => onChange([])} />
+          All employees (round robin)
+        </label>
+        <div className="my-1 border-t" />
+        <div className="max-h-48 space-y-0.5 overflow-y-auto">
+          {members.map((m) => (
+            <label
+              key={m._id}
+              className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+            >
+              <Checkbox checked={selected.includes(m._id)} onCheckedChange={() => toggle(m._id)} />
+              <span className="truncate">{m.name || m.email}</span>
+            </label>
+          ))}
+          {!members.length && (
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">No sales employees yet</p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }

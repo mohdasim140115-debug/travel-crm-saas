@@ -1,5 +1,6 @@
 import connectDB from '@/lib/mongodb'
 import Team from '@/models/Team'
+import User from '@/models/User'
 import { authenticate, requireRoles } from '@/lib/middleware'
 import { encryptToken, decryptToken, maskToken } from '@/lib/metaSync'
 import { schedulerState } from '@/lib/metaSyncScheduler'
@@ -34,6 +35,12 @@ function publicConfig(team) {
     auto: autoMode(),
     enabled: !!cfg.enabled,
     formIds: cfg.formIds || [],
+    // Per-form employee pool (round-robins across the whole team when this
+    // list is empty — "All employees" — otherwise only among these ids).
+    formAssignments: (cfg.formAssignments || []).map((a) => ({
+      formId: a.formId,
+      assignedTo: (a.assignedTo || []).map(String),
+    })),
     hasToken: !!token,
     tokenPreview: maskToken(token),
     tokenSavedAt: cfg.tokenSavedAt || null,
@@ -112,6 +119,36 @@ export async function PATCH(request) {
         return Response.json({ error: 'At most 20 form IDs' }, { status: 400 })
       }
       team.metaSync.formIds = ids
+    }
+
+    if (body.formAssignments !== undefined) {
+      const rows = Array.isArray(body.formAssignments) ? body.formAssignments : []
+      const validFormIds = new Set(team.metaSync.formIds || [])
+      const existingByForm = new Map(
+        (team.metaSync.formAssignments || []).map((a) => [String(a.formId), a])
+      )
+      const assigneeIds = [
+        ...new Set(rows.flatMap((r) => (Array.isArray(r.assignedTo) ? r.assignedTo : []).map(String))),
+      ]
+      const validAssignees =
+        assigneeIds.length &&
+        (await User.find({ _id: { $in: assigneeIds }, teamId: team._id, isActive: true }).select('_id').lean())
+      const validAssigneeIds = new Set((validAssignees || []).map((u) => String(u._id)))
+      team.metaSync.formAssignments = rows
+        .filter((r) => r.formId && validFormIds.has(String(r.formId)))
+        .map((r) => {
+          const list = (Array.isArray(r.assignedTo) ? r.assignedTo : []).filter((id) =>
+            validAssigneeIds.has(String(id))
+          )
+          // Keep this form's own rotation position — resetting it on every
+          // unrelated save would keep re-favoring whoever's first in the list.
+          const prior = existingByForm.get(String(r.formId))
+          return {
+            formId: String(r.formId),
+            assignedTo: list,
+            roundRobinIndex: prior?.roundRobinIndex || 0,
+          }
+        })
     }
 
     if (body.accessToken !== undefined) {

@@ -2,6 +2,7 @@ import connectDB from '@/lib/mongodb'
 import Team from '@/models/Team'
 import { ingestLead } from '@/lib/leadIngest'
 import { parseMetaFieldData } from '@/lib/metaLeadParser'
+import { assignLeadFromFormPool } from '@/lib/assignRoundRobin'
 import crypto from 'crypto'
 
 const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || 'travel_crm_verify'
@@ -110,12 +111,21 @@ export async function POST(request) {
           ? parseMetaFieldData(graphLead.field_data)
           : { firstName: 'Lead', lastName: '', email: null, phone: null }
 
+        // Owner can round-robin a specific form's leads among only a chosen
+        // subset of employees — same mapping the polling sync (lib/metaSync.js) uses.
+        const formId = change.value?.form_id ? String(change.value.form_id) : null
+        const formPool = formId
+          ? (team.metaSync?.formAssignments || []).find((a) => String(a.formId) === formId)?.assignedTo
+          : null
+        const pinned = formPool?.length ? await assignLeadFromFormPool(team._id, formId, formPool) : null
+
         const result = await ingestLead({
           teamId: team._id,
           body: {
             ...parsed,
             externalId: leadgenId,
             source: 'facebook_ads',
+            ...(pinned ? { assignedTo: pinned } : {}),
             metadata: {
               meta: {
                 leadgen_id: leadgenId,

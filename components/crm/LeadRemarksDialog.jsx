@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarPicker } from '@/components/ui/calendar'
+import { TimeSelect } from '@/components/ui/time-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Calendar, MessageSquare, Send } from 'lucide-react'
 import { format } from 'date-fns'
@@ -208,12 +209,10 @@ export function LeadRemarksDialog({ lead, open, onOpenChange, onSaved }) {
               </Popover>
               <div className="flex items-center gap-2">
                 <Label className="shrink-0 text-xs text-muted-foreground">Time</Label>
-                <Input
-                  type="time"
-                  className="h-8"
+                <TimeSelect
                   value={followUpDate ? followUpDate.slice(11, 16) : ''}
-                  onChange={(e) => {
-                    const [hh, mm] = e.target.value.split(':').map(Number)
+                  onChange={(timeStr) => {
+                    const [hh, mm] = timeStr.split(':').map(Number)
                     const base = followUpDate ? new Date(followUpDate) : new Date()
                     base.setHours(hh, mm)
                     setFollowUpDate(format(base, "yyyy-MM-dd'T'HH:mm"))
