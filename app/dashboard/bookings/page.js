@@ -148,11 +148,21 @@ function BookingsPageContent() {
 
   useEffect(() => {
     const token = localStorage.getItem('token')
-    // "Completed" isn't a status any booking is ever actually saved with —
-    // it's derived from the trip's own dates (still 'confirmed', but the
-    // departure date has already passed), so fetch confirmed bookings and
-    // filter by date client-side instead of asking the API for status=completed.
-    const q = filter === 'completed' ? '?status=confirmed' : filter !== 'all' ? `?status=${filter}` : ''
+    // Every booking is created with status 'confirmed' (see POST
+    // /api/bookings) — 'pending' is never actually saved, and 'completed' is
+    // derived from the trip's own dates having passed rather than a real
+    // status value. So "Pending"/"Confirmed"/"Completed" all fetch the same
+    // confirmed-status bookings and are told apart client-side: "Pending" /
+    // "Confirmed" by the per-item hotel/cab/activity confirmation state (the
+    // same badges the table shows), "Completed" by end date.
+    const statusQ =
+      ['completed', 'pending', 'confirmed'].includes(filter) ? 'status=confirmed' : filter !== 'all' ? `status=${filter}` : ''
+    // The API defaults to limit=10 with no `limit=` param — the Operations
+    // dashboard's stat tiles (e.g. "New Bookings: 8") count against the whole
+    // team unbounded, so without a real limit here this list only ever showed
+    // whatever fit in the first 10 overall, then filtered *that* down to the
+    // matching subset — always fewer than the tile's real count.
+    const q = `?${statusQ ? `${statusQ}&` : ''}limit=500`
     // Show the skeleton while a new filter's data is in flight — without this
     // the previous filter's rows stayed on screen, then popped.
     setLoading(true)
@@ -164,11 +174,16 @@ function BookingsPageContent() {
   }, [filter])
 
   const opsFilterDef = opsFilter ? OPS_FILTERS[opsFilter] : null
-  const completedFiltered =
+  const hasAnyPending = (b) => b.hotelStatus === 'pending' || b.vehicleStatus === 'pending' || b.activityStatus === 'pending'
+  const tabFiltered =
     filter === 'completed'
       ? bookings.filter((b) => b.endDate && new Date(b.endDate) < new Date())
-      : bookings
-  const displayedBookings = opsFilterDef ? completedFiltered.filter(opsFilterDef.match) : completedFiltered
+      : filter === 'pending'
+        ? bookings.filter(hasAnyPending)
+        : filter === 'confirmed'
+          ? bookings.filter((b) => !hasAnyPending(b))
+          : bookings
+  const displayedBookings = opsFilterDef ? tabFiltered.filter(opsFilterDef.match) : tabFiltered
 
   const confirmCancel = async () => {
     if (!cancelReason.trim()) {

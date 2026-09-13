@@ -26,21 +26,50 @@ export default function TourCalendarPage() {
 
   const fetchTours = async () => {
     const token = localStorage.getItem('token')
-    const res = await fetch('/api/tours?limit=50', { headers: { Authorization: `Bearer ${token}` } })
-    const data = await res.json()
-    setTours(
-      (data.tours || []).map((t) => ({
-        id: t._id,
-        name: t.tourName,
-        startDate: new Date(t.startDate),
-        endDate: new Date(t.endDate),
-        destination: t.destination,
-        participants: t.participants?.length || 0,
-        price: t.price,
-        status: t.status || 'planning',
-        color: 'bg-primary/10',
-      }))
-    )
+    const [toursRes, bookingsRes] = await Promise.all([
+      fetch('/api/tours?limit=50', { headers: { Authorization: `Bearer ${token}` } }),
+      // Confirmed bookings already have real trip dates (the itinerary's
+      // actual day-wise plan, not a stale field) and a lead/destination —
+      // showing them here automatically means Operations doesn't have to
+      // re-type every trip as a separate "Tour" just to see it on this
+      // calendar.
+      fetch('/api/bookings?status=confirmed&limit=500', { headers: { Authorization: `Bearer ${token}` } }),
+    ])
+    const toursData = await toursRes.json().catch(() => ({}))
+    const bookingsData = await bookingsRes.json().catch(() => ({}))
+
+    const manualTours = (toursData.tours || []).map((t) => ({
+      id: t._id,
+      source: 'tour',
+      name: t.tourName,
+      startDate: new Date(t.startDate),
+      endDate: new Date(t.endDate),
+      destination: t.destination,
+      participants: t.participants?.length || 0,
+      price: t.price,
+      status: t.status || 'planning',
+      color: 'bg-primary/10',
+    }))
+
+    const bookingEvents = (bookingsData.bookings || [])
+      .filter((b) => b.startDate && b.endDate)
+      .map((b) => {
+        const leadName = [b.leadId?.firstName, b.leadId?.lastName].filter(Boolean).join(' ') || 'Guest'
+        return {
+          id: b._id,
+          source: 'booking',
+          name: `${leadName} — ${b.itineraryId?.destination || ''}`.trim(),
+          startDate: new Date(b.startDate),
+          endDate: new Date(b.endDate),
+          destination: b.itineraryId?.destination || '',
+          participants: b.numberOfTravelers || 0,
+          price: b.totalAmount || 0,
+          status: 'booked',
+          color: 'bg-sky-500/20',
+        }
+      })
+
+    setTours([...manualTours, ...bookingEvents])
   }
 
   useEffect(() => {
@@ -269,8 +298,8 @@ export default function TourCalendarPage() {
       {/* Upcoming Tours */}
       <Card>
         <CardHeader>
-          <CardTitle>Upcoming Tours</CardTitle>
-          <CardDescription>{tours.length} tours scheduled</CardDescription>
+          <CardTitle>Upcoming Tours &amp; Bookings</CardTitle>
+          <CardDescription>{tours.length} scheduled</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -304,12 +333,19 @@ export default function TourCalendarPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{tour.status}</Badge>
-                    <Button variant="ghost" size="sm" className="min-h-10 min-w-10">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="min-h-10 min-w-10">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {/* A booking-sourced entry is edited/cancelled from the
+                        Bookings page, not here — only manually-added Tours
+                        get these controls. */}
+                    {tour.source !== 'booking' && (
+                      <>
+                        <Button variant="ghost" size="sm" className="min-h-10 min-w-10">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="min-h-10 min-w-10">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

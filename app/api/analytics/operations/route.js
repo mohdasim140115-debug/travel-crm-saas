@@ -1,6 +1,7 @@
 import connectDB from '@/lib/mongodb'
 import Booking from '@/models/Booking'
 import Voucher from '@/models/Voucher'
+import ItineraryDay from '@/models/ItineraryDay'
 import { authenticate, requireRoles } from '@/lib/middleware'
 import {
   computeHotelConfirmations,
@@ -43,6 +44,26 @@ export async function GET(request) {
       .limit(500)
       .lean()
 
+    // The Dates column on the Bookings list shows the actual day-wise plan's
+    // first/last day, not the booking's own startDate/endDate — those go
+    // stale if the plan is edited afterward without updating them. This tile
+    // must use the same source, or "Running Tours" here can disagree with
+    // what actually shows as running when the tile is clicked through to.
+    const itineraryIds = scopedBookings.map((b) => b.itineraryId?._id || b.itineraryId).filter(Boolean)
+    const days = itineraryIds.length
+      ? await ItineraryDay.find({ itineraryId: { $in: itineraryIds }, date: { $ne: null } })
+          .select('itineraryId date')
+          .sort({ date: 1 })
+          .lean()
+      : []
+    const planRangeByItinerary = new Map()
+    for (const d of days) {
+      const key = String(d.itineraryId)
+      const range = planRangeByItinerary.get(key)
+      if (!range) planRangeByItinerary.set(key, { start: d.date, end: d.date })
+      else if (d.date > range.end) range.end = d.date
+    }
+
     let newBookings = 0
     let hotelPending = 0
     let cabPending = 0
@@ -52,10 +73,13 @@ export async function GET(request) {
       if (b.opsStatus === 'awaiting_ops') newBookings++
       if (deriveStatus(computeHotelConfirmations(b, b.itineraryId)) === 'pending') hotelPending++
       if (deriveStatus(computeVehicleConfirmations(b, b.itineraryId)) === 'pending') cabPending++
-      if (b.status === 'confirmed' && b.startDate) {
-        const sd = new Date(b.startDate)
+      const planRange = planRangeByItinerary.get(String(b.itineraryId?._id || b.itineraryId))
+      const startDate = planRange?.start || b.startDate
+      const endDate = planRange?.end || b.endDate
+      if (b.status === 'confirmed' && startDate) {
+        const sd = new Date(startDate)
         if (sd >= now && sd <= weekAhead) upcomingArrivals++
-        if (sd <= now && b.endDate && new Date(b.endDate) >= now) runningTours++
+        if (sd <= now && endDate && new Date(endDate) >= now) runningTours++
       }
     }
 
