@@ -36,6 +36,7 @@ import {
   ArrowLeft,
   CalendarClock,
   Loader2,
+  Pencil,
   Save,
   ShieldAlert,
   Trash2,
@@ -76,6 +77,9 @@ export default function AgencyDetailPage() {
   const [purgeOpen, setPurgeOpen] = useState(false)
   const [purgeConfirm, setPurgeConfirm] = useState('')
   const [purging, setPurging] = useState(false)
+  const [editingUserId, setEditingUserId] = useState(null)
+  const [editingUserName, setEditingUserName] = useState('')
+  const [savingUserName, setSavingUserName] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -137,6 +141,27 @@ export default function AgencyDetailPage() {
     })
 
   const renewSubscription = () => patch({ renew: true }, 'Subscription renewed for 1 month')
+
+  const saveUserName = async (userId) => {
+    if (!editingUserName.trim()) {
+      toast.error('Name cannot be empty')
+      return
+    }
+    setSavingUserName(true)
+    try {
+      await saFetch('/api/superadmin/users', {
+        method: 'PATCH',
+        body: { userId, name: editingUserName.trim() },
+      })
+      toast.success('Name updated')
+      setEditingUserId(null)
+      await load()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setSavingUserName(false)
+    }
+  }
 
   const saveOverrides = () => {
     // `null` clears an override server-side; a blank field means the same here.
@@ -476,7 +501,47 @@ export default function AgencyDetailPage() {
               <TableBody>
                 {users.map((u) => (
                   <TableRow key={String(u._id)}>
-                    <TableCell className="font-medium">{u.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {editingUserId === String(u._id) ? (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            value={editingUserName}
+                            onChange={(e) => setEditingUserName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveUserName(u._id)}
+                            className="h-8 w-36"
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 px-2"
+                            disabled={savingUserName}
+                            onClick={() => saveUserName(u._id)}
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2"
+                            onClick={() => setEditingUserId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 hover:underline"
+                          onClick={() => {
+                            setEditingUserId(String(u._id))
+                            setEditingUserName(u.name || '')
+                          }}
+                        >
+                          {u.name}
+                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                        </button>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{ROLE_LABELS[u.role] || u.role}</Badge>
