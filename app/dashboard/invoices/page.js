@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, FileText } from 'lucide-react'
+import { Plus, FileText, Upload, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,6 +34,7 @@ import { toast } from 'sonner'
 import { mutateJson } from '@/lib/mutate'
 import { formatInr } from '@/utils/crm'
 import { TableShell } from '@/components/crm/TableShell'
+import { toCompressedDataUrl } from '@/lib/imageCompress'
 
 function formatDate(d) {
   if (!d) return null
@@ -61,6 +62,9 @@ function InvoicesPageInner() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [finalInvoiceAmount, setFinalInvoiceAmount] = useState(0)
+  const [hasFinalInvoice, setHasFinalInvoice] = useState(false)
+  const [paymentScreenshot, setPaymentScreenshot] = useState('')
+  const [compressingScreenshot, setCompressingScreenshot] = useState(false)
   const [form, setForm] = useState({
     bookingId: '',
     clientName: '',
@@ -75,8 +79,12 @@ function InvoicesPageInner() {
   const load = () => {
     const token = localStorage.getItem('token')
     Promise.all([
-      fetch('/api/invoices?limit=50', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-      fetch('/api/bookings?limit=50', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      // Was limit=50 with no bound on how many clients/bookings a team can
+      // have — the Accounts dashboard's tiles count the whole (unbounded)
+      // team, so this page silently showed fewer than the tile said once a
+      // team passed 50 of either.
+      fetch('/api/invoices?limit=500', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch('/api/bookings?limit=500', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
     ])
       .then(([invData, bookData]) => {
         setInvoices(invData.invoices || [])
@@ -125,6 +133,8 @@ function InvoicesPageInner() {
 
     setDayPlanDates([])
     setFinalInvoiceAmount(0)
+    setHasFinalInvoice(false)
+    setPaymentScreenshot('')
     if (!bookingId) return
     const token = localStorage.getItem('token')
 
@@ -141,6 +151,7 @@ function InvoicesPageInner() {
         if (!booking) return
         const receivedSoFar = (booking.invoices || []).reduce((sum, i) => sum + (i.amountPaid || 0), 0)
         setFinalInvoiceAmount(Math.max(0, (booking.totalAmount || 0) - receivedSoFar))
+        setHasFinalInvoice((booking.invoices || []).some((i) => i.invoiceType === 'tax_invoice'))
       })
       .catch(() => setFinalInvoiceAmount(0))
 
@@ -163,6 +174,22 @@ function InvoicesPageInner() {
       .catch(() => setDayPlanDates([]))
   }
 
+  const handlePaymentScreenshotPick = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setCompressingScreenshot(true)
+    try {
+      // Well under 300KB — a proof screenshot, not an archival copy.
+      const dataUrl = await toCompressedDataUrl(file, 300 * 1024)
+      setPaymentScreenshot(dataUrl)
+    } catch {
+      toast.error('Failed to process screenshot')
+    } finally {
+      setCompressingScreenshot(false)
+    }
+  }
+
   const createInvoice = async () => {
     // Partial and Advance invoices both bill exactly what was received; a
     // Final Invoice bills whatever's left of the package and isn't hand-typed.
@@ -175,6 +202,15 @@ function InvoicesPageInner() {
     }
     if (isAdvanceLike && subtotal > finalInvoiceAmount) {
       toast.error(`Amount cannot exceed the due balance of ${formatInr(finalInvoiceAmount)}`)
+      return
+    }
+    // The final-invoice amount is "package total minus what's been PAID so
+    // far" — it doesn't drop to 0 just because a Final Invoice was already
+    // raised, since the client hasn't actually paid it yet. That reads as
+    // "the amount never goes away", but the real risk it hides is creating a
+    // second Final Invoice for the same balance before the first is paid.
+    if (isFinal && hasFinalInvoice) {
+      toast.error('A Final Invoice already exists for this booking — mark it paid before raising another.')
       return
     }
     const token = localStorage.getItem('token')
@@ -193,7 +229,11 @@ function InvoicesPageInner() {
           taxRate: Number(form.gstRate) || 0,
           dueDate: isFinal ? new Date().toISOString().slice(0, 10) : form.dueDate,
           invoiceType: form.invoiceType,
-          amountPaid: isAdvanceLike ? subtotal : 0,
+          // A Final Invoice only shows as paid (and clears the client's
+          // balance) once money has actually come in — a screenshot attached
+          // to it IS that proof, so treat it the same as Advance/Partial.
+          amountPaid: isAdvanceLike || (isFinal && paymentScreenshot) ? subtotal : 0,
+          paymentScreenshot,
           items: [
             {
               description: isAdvanceLike ? 'Payment received' : isFinal ? 'Final payment' : 'Travel package',
@@ -222,6 +262,7 @@ function InvoicesPageInner() {
     })
     setDayPlanDates([])
     setFinalInvoiceAmount(0)
+    setPaymentScreenshot('')
     load()
     if (data.invoice?._id) downloadInvoicePdf(data.invoice._id)
   }
@@ -277,6 +318,29 @@ function InvoicesPageInner() {
       }
       groups.get(key).invoices.push(inv)
     }
+    // The Accounts dashboard's Ongoing/Upcoming/Arriving-Tomorrow tiles count
+    // every confirmed booking in that date range, invoiced or not — a
+    // booking nobody's invoiced yet is exactly the one Accounts most needs to
+    // notice, especially if it's arriving tomorrow. Without this, a booking
+    // with zero invoices had no row here at all, so the tile's count could
+    // never match what this page showed.
+    for (const b of bookings) {
+      if (b.status !== 'confirmed') continue
+      const key = String(b._id)
+      if (groups.has(key)) continue
+      groups.set(key, {
+        key,
+        bookingId: b._id,
+        clientName: b.leadId ? [b.leadId.firstName, b.leadId.lastName].filter(Boolean).join(' ') : 'Client',
+        packageTotal: b.totalAmount || 0,
+        startDate: b.startDate || null,
+        endDate: b.endDate || null,
+        bookingStatus: b.status,
+        refundAmount: b.refundAmount || 0,
+        refundStatus: b.refundStatus || 'none',
+        invoices: [],
+      })
+    }
     return Array.from(groups.values()).map((g) => {
       const amountPaidSum = g.invoices.reduce((s, i) => s + (i.amountPaid || 0), 0)
       const packageTotal = g.packageTotal || Math.max(...g.invoices.map((i) => i.totalAmount || 0), 0)
@@ -318,13 +382,30 @@ function InvoicesPageInner() {
   const [clientFilter, setClientFilter] = useState('all')
   useEffect(() => {
     const f = searchParams.get('filter')
-    if (f === 'ongoing' || f === 'upcoming' || f === 'tomorrow') setClientFilter(f)
+    if (['ongoing', 'upcoming', 'tomorrow', 'pending'].includes(f)) setClientFilter(f)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Same "chase this right now" definition the Accounts dashboard's Pending
+  // Payments tile counts against (see app/api/analytics/accounts/route.js:
+  // an *invoice* that's still unpaid/partial with a due date today or
+  // already passed) — checked per invoice, not off the client's earliest
+  // due date across every invoice (which could easily be one that's since
+  // been paid), or that tile's count never matched this list.
+  const isPending = (g) => {
+    const dueWindow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    return (g.invoices || []).some(
+      (inv) =>
+        ['unpaid', 'partial'].includes(inv.paymentStatus) &&
+        inv.dueDate &&
+        new Date(inv.dueDate) <= dueWindow
+    )
+  }
 
   const visibleInvoices = useMemo(() => {
     if (clientFilter === 'all') return groupedInvoices
     if (clientFilter === 'tomorrow') return groupedInvoices.filter((g) => g.arrivingTomorrow)
+    if (clientFilter === 'pending') return groupedInvoices.filter(isPending)
     return groupedInvoices.filter((g) => g.tripStage === clientFilter)
   }, [groupedInvoices, clientFilter])
 
@@ -351,6 +432,7 @@ function InvoicesPageInner() {
           <div className="scroll-hover-thin flex flex-nowrap gap-2 overflow-x-auto pt-1 pb-1">
             {[
               { key: 'all', label: 'All' },
+              { key: 'pending', label: 'Pending Payments' },
               { key: 'ongoing', label: 'Ongoing Clients' },
               { key: 'upcoming', label: 'Upcoming Clients' },
               { key: 'tomorrow', label: 'Arriving Tomorrow' },
@@ -566,6 +648,39 @@ function InvoicesPageInner() {
                   <span className="text-muted-foreground">Total due</span>
                   <span className="font-semibold">{formatInr(finalInvoiceAmount)}</span>
                 </div>
+                <div className="border-t pt-2">
+                  <Label className="text-xs">Payment screenshot</Label>
+                  <input
+                    id="invoice-list-payment-screenshot"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={compressingScreenshot}
+                    onChange={handlePaymentScreenshotPick}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={compressingScreenshot}
+                    className="mt-1 gap-1.5"
+                    onClick={() => document.getElementById('invoice-list-payment-screenshot')?.click()}
+                  >
+                    {compressingScreenshot ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    {paymentScreenshot ? 'Screenshot selected' : 'Upload screenshot (optional)'}
+                  </Button>
+                  {paymentScreenshot && (
+                    <img
+                      src={paymentScreenshot}
+                      alt="Payment proof"
+                      className="mt-2 h-20 w-20 rounded border object-cover"
+                    />
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-2 rounded-md border bg-muted/30 p-3">
@@ -575,6 +690,48 @@ function InvoicesPageInner() {
                   Auto-calculated — package total minus everything already received (advance + Partial/Advance
                   invoices). Not editable.
                 </p>
+                {hasFinalInvoice && (
+                  <p className="text-xs font-medium text-destructive">
+                    A Final Invoice already exists for this booking — this amount stays until it's marked paid,
+                    it isn't a second bill.
+                  </p>
+                )}
+                <div className="border-t pt-2">
+                  <Label className="text-xs">Payment screenshot</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Attach only if this balance is already received — doing so marks this invoice Paid right away.
+                  </p>
+                  <input
+                    id="invoice-list-final-payment-screenshot"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={compressingScreenshot}
+                    onChange={handlePaymentScreenshotPick}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={compressingScreenshot}
+                    className="mt-1 gap-1.5"
+                    onClick={() => document.getElementById('invoice-list-final-payment-screenshot')?.click()}
+                  >
+                    {compressingScreenshot ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    {paymentScreenshot ? 'Screenshot selected' : 'Upload screenshot (optional)'}
+                  </Button>
+                  {paymentScreenshot && (
+                    <img
+                      src={paymentScreenshot}
+                      alt="Payment proof"
+                      className="mt-2 h-20 w-20 rounded border object-cover"
+                    />
+                  )}
+                </div>
               </div>
             )}
             <div className="space-y-2 rounded-md border p-3">

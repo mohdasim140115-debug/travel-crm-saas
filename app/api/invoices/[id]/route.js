@@ -2,12 +2,15 @@ import connectDB from '@/lib/mongodb'
 import Invoice from '@/models/Invoice'
 import { authenticate, requireRoles } from '@/lib/middleware'
 
-/** Supports two kinds of update:
+/** Supports three kinds of update:
  *  - { status: 'sent' } — the draft-to-sent hand-off, no remark needed.
  *  - { edit: { amount, dueDate, invoiceType, remark } } — a correction to an
  *    already-raised invoice. Always snapshots the pre-edit amount/due
  *    date/type into editHistory with a mandatory remark, so the change is
- *    auditable instead of a number silently changing. */
+ *    auditable instead of a number silently changing.
+ *  - { markPaid: { paymentScreenshot } } — record that the full invoice
+ *    amount has actually been received (with optional proof), for an
+ *    invoice that was raised as unpaid/partial and only settled afterward. */
 export async function PATCH(request, { params }) {
   try {
     const authResult = await authenticate(request)
@@ -62,6 +65,21 @@ export async function PATCH(request, { params }) {
       invoice.amountPaid = paid
       invoice.paymentStatus = paid <= 0 ? 'unpaid' : paid >= totalAmount ? 'paid' : 'partial'
 
+      await invoice.save()
+      return Response.json({ invoice })
+    }
+
+    if (body.markPaid) {
+      const invoice = await Invoice.findOne({ _id: id, teamId: authResult.user.teamId })
+      if (!invoice) {
+        return Response.json({ error: 'Invoice not found' }, { status: 404 })
+      }
+      invoice.amountPaid = invoice.totalAmount
+      invoice.paymentStatus = 'paid'
+      invoice.paidDate = new Date()
+      if (body.markPaid.paymentScreenshot) {
+        invoice.paymentScreenshot = body.markPaid.paymentScreenshot
+      }
       await invoice.save()
       return Response.json({ invoice })
     }

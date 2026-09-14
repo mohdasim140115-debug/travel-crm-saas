@@ -2,6 +2,7 @@ import connectDB from '@/lib/mongodb'
 import Invoice from '@/models/Invoice'
 import Payment from '@/models/Payment'
 import Booking from '@/models/Booking'
+import ItineraryDay from '@/models/ItineraryDay'
 import Lead from '@/models/Lead' // eslint-disable-line no-unused-vars -- registers the schema so Booking.populate('leadId') resolves
 import User from '@/models/User' // eslint-disable-line no-unused-vars -- registers the schema so Booking.populate('assignedTo') resolves
 import { authenticate, requireRoles } from '@/lib/middleware'
@@ -41,9 +42,8 @@ export async function GET(request) {
       ...invoiceScope,
     }
 
-    // Ongoing/upcoming/arriving-tomorrow — purely from each booking's own
-    // startDate/endDate (arrival/departure), date-only comparison so time-of-day
-    // never puts a booking in the wrong bucket.
+    // Ongoing/upcoming/arriving-tomorrow — date-only comparison so
+    // time-of-day never puts a booking in the wrong bucket.
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const todayEnd = new Date(todayStart.getTime() + 86400000 - 1)
@@ -56,59 +56,60 @@ export async function GET(request) {
     // count forever just because status stays 'confirmed'.
     const invoicedBookingIds = await Invoice.find({ teamId: tid }).distinct('bookingId')
 
-    const [
-      pendingPayments,
-      bookingsInQueue,
-      advanceInvoices,
-      finalInvoices,
-      creditNotes,
-      ongoingClients,
-      upcomingClients,
-      arrivingTomorrowCount,
-    ] = await Promise.all([
+    // These tiles used to count off each Booking's own startDate/endDate —
+    // which go stale the moment the day-wise plan is edited afterward
+    // without updating them. The Invoices page (what these tiles link to)
+    // already uses the itinerary's actual plan dates via GET /api/bookings,
+    // so counting off the same source here is what keeps the tile's number
+    // and the list you land on actually matching.
+    const confirmedBookings = await Booking.find({ teamId: tid, status: 'confirmed', ...bookingScope })
+      .select('startDate endDate itineraryId leadId bookingNumber totalAmount')
+      .populate('leadId', 'firstName lastName phone')
+      .lean()
+
+    const itineraryIds = confirmedBookings.map((b) => b.itineraryId).filter(Boolean)
+    const days = itineraryIds.length
+      ? await ItineraryDay.find({ itineraryId: { $in: itineraryIds }, date: { $ne: null } })
+          .select('itineraryId date')
+          .sort({ date: 1 })
+          .lean()
+      : []
+    const planRangeByItinerary = new Map()
+    for (const d of days) {
+      const key = String(d.itineraryId)
+      const range = planRangeByItinerary.get(key)
+      if (!range) planRangeByItinerary.set(key, { start: d.date, end: d.date })
+      else if (d.date > range.end) range.end = d.date
+    }
+
+    let bookingsInQueue = 0
+    let ongoingClients = 0
+    let upcomingClients = 0
+    let arrivingTomorrowCount = 0
+    const arrivingTomorrow = []
+    for (const b of confirmedBookings) {
+      const planRange = planRangeByItinerary.get(String(b.itineraryId))
+      const startDate = planRange?.start || b.startDate
+      const endDate = planRange?.end || b.endDate
+      if (!invoicedBookingIds.some((id) => String(id) === String(b._id))) bookingsInQueue++
+      if (startDate && new Date(startDate) <= todayEnd && endDate && new Date(endDate) >= todayStart) {
+        ongoingClients++
+      } else if (startDate && new Date(startDate) > todayEnd) {
+        upcomingClients++
+      }
+      if (startDate && new Date(startDate) >= tomorrowStart && new Date(startDate) <= tomorrowEnd) {
+        arrivingTomorrowCount++
+        arrivingTomorrow.push({ ...b, startDate, endDate })
+      }
+    }
+    arrivingTomorrow.sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+
+    const [pendingPayments, advanceInvoices, finalInvoices, creditNotes] = await Promise.all([
       Invoice.countDocuments(duePaymentsQuery),
-      Booking.countDocuments({
-        teamId: tid,
-        status: 'confirmed',
-        ...bookingScope,
-        _id: { $nin: invoicedBookingIds },
-      }),
       Invoice.countDocuments({ teamId: tid, invoiceType: 'advance' }),
       Invoice.countDocuments({ teamId: tid, invoiceType: 'tax_invoice' }),
       Invoice.countDocuments({ teamId: tid, invoiceType: 'credit_note' }),
-      Booking.countDocuments({
-        teamId: tid,
-        status: 'confirmed',
-        ...bookingScope,
-        startDate: { $lte: todayEnd },
-        endDate: { $gte: todayStart },
-      }),
-      Booking.countDocuments({
-        teamId: tid,
-        status: 'confirmed',
-        ...bookingScope,
-        startDate: { $gt: todayEnd },
-      }),
-      Booking.countDocuments({
-        teamId: tid,
-        status: 'confirmed',
-        ...bookingScope,
-        startDate: { $gte: tomorrowStart, $lte: tomorrowEnd },
-      }),
     ])
-
-    // The actual "who's arriving tomorrow" list — so Accounts can click
-    // straight into each booking instead of just seeing a count.
-    const arrivingTomorrow = await Booking.find({
-      teamId: tid,
-      status: 'confirmed',
-      ...bookingScope,
-      startDate: { $gte: tomorrowStart, $lte: tomorrowEnd },
-    })
-      .populate('leadId', 'firstName lastName phone')
-      .select('bookingNumber startDate endDate totalAmount leadId')
-      .sort({ startDate: 1 })
-      .lean()
 
     const duePayments = await Invoice.find(duePaymentsQuery)
       .sort({ dueDate: 1 })

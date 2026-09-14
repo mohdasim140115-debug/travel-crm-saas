@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Plus, User, Wallet, IndianRupee } from 'lucide-react'
+import { ArrowLeft, Loader2, Plus, User, Wallet, IndianRupee, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { leadDisplayName, formatInr, displayEmail } from '@/utils/crm'
+import { toCompressedDataUrl } from '@/lib/imageCompress'
 
 function formatDate(d) {
   if (!d) return '—'
@@ -95,10 +96,16 @@ export default function InvoiceClientLedgerPage() {
     dueDate: '',
     gstRate: 0,
   })
+  const [paymentScreenshot, setPaymentScreenshot] = useState('')
+  const [compressingScreenshot, setCompressingScreenshot] = useState(false)
   const [creatingInvoice, setCreatingInvoice] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState(null)
   const [editForm, setEditForm] = useState({ amount: '', dueDate: '', invoiceType: 'proforma', remark: '' })
   const [savingEdit, setSavingEdit] = useState(false)
+  const [markPaidInvoice, setMarkPaidInvoice] = useState(null)
+  const [markPaidScreenshot, setMarkPaidScreenshot] = useState('')
+  const [compressingMarkPaidScreenshot, setCompressingMarkPaidScreenshot] = useState(false)
+  const [savingMarkPaid, setSavingMarkPaid] = useState(false)
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('user') || '{}')
     if (!['admin', 'accounts'].includes(u.role)) {
@@ -155,7 +162,24 @@ export default function InvoiceClientLedgerPage() {
           : '',
       gstRate: 0,
     })
+    setPaymentScreenshot('')
     setInvoiceDialogOpen(true)
+  }
+
+  const handlePaymentScreenshotPick = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setCompressingScreenshot(true)
+    try {
+      // Well under 300KB — a proof screenshot, not an archival copy.
+      const dataUrl = await toCompressedDataUrl(file, 300 * 1024)
+      setPaymentScreenshot(dataUrl)
+    } catch {
+      toast.error('Failed to process screenshot')
+    } finally {
+      setCompressingScreenshot(false)
+    }
   }
 
   const createInvoice = async () => {
@@ -172,6 +196,16 @@ export default function InvoiceClientLedgerPage() {
     }
     if (isAdvanceLike && subtotal > finalInvoiceAmount) {
       toast.error(`Amount cannot exceed the due balance of ${formatInr(finalInvoiceAmount)}`)
+      return
+    }
+    // The final-invoice amount is "package total minus what's been PAID so
+    // far" — it deliberately doesn't drop to 0 just because a Final Invoice
+    // was already raised, since the client hasn't actually paid it yet. That
+    // reads as "the amount never goes away", but the real risk it was
+    // hiding is creating a second Final Invoice for the same balance before
+    // the first one is paid — block that here instead.
+    if (isFinal && (booking.invoices || []).some((inv) => inv.invoiceType === 'tax_invoice')) {
+      toast.error('A Final Invoice already exists for this booking — mark it paid before raising another.')
       return
     }
     setCreatingInvoice(true)
@@ -193,7 +227,11 @@ export default function InvoiceClientLedgerPage() {
           taxRate: Number(invoiceForm.gstRate) || 0,
           dueDate: isFinal ? new Date().toISOString().slice(0, 10) : invoiceForm.dueDate,
           invoiceType: invoiceForm.invoiceType,
-          amountPaid: isAdvanceLike ? subtotal : 0,
+          // A Final Invoice only shows as paid (and clears the client's
+          // balance) once money has actually come in — a screenshot attached
+          // to it IS that proof, so treat it the same as Advance/Partial.
+          amountPaid: isAdvanceLike || (isFinal && paymentScreenshot) ? subtotal : 0,
+          paymentScreenshot,
           items: [
             {
               description: isAdvanceLike ? 'Payment received' : isFinal ? 'Final payment' : 'Travel package',
@@ -262,6 +300,49 @@ export default function InvoiceClientLedgerPage() {
       toast.error(e.message)
     } finally {
       setSavingEdit(false)
+    }
+  }
+
+  const openMarkPaid = (inv) => {
+    setMarkPaidInvoice(inv)
+    setMarkPaidScreenshot(inv.paymentScreenshot || '')
+  }
+
+  const handleMarkPaidScreenshotPick = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setCompressingMarkPaidScreenshot(true)
+    try {
+      const dataUrl = await toCompressedDataUrl(file, 300 * 1024)
+      setMarkPaidScreenshot(dataUrl)
+    } catch {
+      toast.error('Failed to process screenshot')
+    } finally {
+      setCompressingMarkPaidScreenshot(false)
+    }
+  }
+
+  const saveMarkPaid = async () => {
+    setSavingMarkPaid(true)
+    try {
+      const res = await fetch(`/api/invoices/${markPaidInvoice._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authH() },
+        body: JSON.stringify({ markPaid: { paymentScreenshot: markPaidScreenshot } }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to update invoice')
+      setBooking((b) => ({
+        ...b,
+        invoices: b.invoices.map((i) => (i._id === data.invoice._id ? data.invoice : i)),
+      }))
+      toast.success('Invoice marked as paid')
+      setMarkPaidInvoice(null)
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setSavingMarkPaid(false)
     }
   }
 
@@ -424,6 +505,20 @@ export default function InvoiceClientLedgerPage() {
                         <Badge variant="outline" className="capitalize">
                           {inv.paymentStatus}
                         </Badge>
+                        {inv.paymentScreenshot && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setPreviewImage(inv.paymentScreenshot)}
+                          >
+                            Proof
+                          </Button>
+                        )}
+                        {inv.paymentStatus !== 'paid' && (
+                          <Button size="sm" variant="outline" onClick={() => openMarkPaid(inv)}>
+                            Mark Paid
+                          </Button>
+                        )}
                         <Button size="sm" variant="outline" onClick={() => downloadInvoicePdf(inv._id)}>
                           Download
                         </Button>
@@ -696,6 +791,39 @@ export default function InvoiceClientLedgerPage() {
                   <span className="text-muted-foreground">Total due</span>
                   <span className="font-semibold">{formatInr(finalInvoiceAmount)}</span>
                 </div>
+                <div className="border-t pt-2">
+                  <Label className="text-xs">Payment screenshot</Label>
+                  <input
+                    id="invoice-payment-screenshot"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={compressingScreenshot}
+                    onChange={handlePaymentScreenshotPick}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={compressingScreenshot}
+                    className="mt-1 gap-1.5"
+                    onClick={() => document.getElementById('invoice-payment-screenshot')?.click()}
+                  >
+                    {compressingScreenshot ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    {paymentScreenshot ? 'Screenshot selected' : 'Upload screenshot (optional)'}
+                  </Button>
+                  {paymentScreenshot && (
+                    <img
+                      src={paymentScreenshot}
+                      alt="Payment proof"
+                      className="mt-2 h-20 w-20 rounded border object-cover"
+                    />
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-2 rounded-md border bg-muted/30 p-3">
@@ -705,6 +833,48 @@ export default function InvoiceClientLedgerPage() {
                   Auto-calculated — package total minus everything already received (advance + Partial/Advance
                   invoices). Not editable.
                 </p>
+                {(booking.invoices || []).some((inv) => inv.invoiceType === 'tax_invoice') && (
+                  <p className="text-xs font-medium text-destructive">
+                    A Final Invoice already exists for this booking — this amount stays until it's marked paid,
+                    it isn't a second bill.
+                  </p>
+                )}
+                <div className="border-t pt-2">
+                  <Label className="text-xs">Payment screenshot</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Attach only if this balance is already received — doing so marks this invoice Paid right away.
+                  </p>
+                  <input
+                    id="invoice-final-payment-screenshot"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={compressingScreenshot}
+                    onChange={handlePaymentScreenshotPick}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={compressingScreenshot}
+                    className="mt-1 gap-1.5"
+                    onClick={() => document.getElementById('invoice-final-payment-screenshot')?.click()}
+                  >
+                    {compressingScreenshot ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    {paymentScreenshot ? 'Screenshot selected' : 'Upload screenshot (optional)'}
+                  </Button>
+                  {paymentScreenshot && (
+                    <img
+                      src={paymentScreenshot}
+                      alt="Payment proof"
+                      className="mt-2 h-20 w-20 rounded border object-cover"
+                    />
+                  )}
+                </div>
               </div>
             )}
             <div className="space-y-2 rounded-md border p-3">
@@ -802,6 +972,56 @@ export default function InvoiceClientLedgerPage() {
           <Button className="w-full gap-1.5" disabled={savingEdit} onClick={saveEditInvoice}>
             {savingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
             Save changes
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!markPaidInvoice} onOpenChange={(o) => !o && setMarkPaidInvoice(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark {markPaidInvoice?.invoiceNumber} as paid</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              This records {formatInr(markPaidInvoice?.totalAmount)} as received in full. Attach the payment
+              screenshot if you have it — optional but recommended.
+            </p>
+            <div>
+              <input
+                id="mark-paid-screenshot"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={compressingMarkPaidScreenshot}
+                onChange={handleMarkPaidScreenshotPick}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={compressingMarkPaidScreenshot}
+                className="gap-1.5"
+                onClick={() => document.getElementById('mark-paid-screenshot')?.click()}
+              >
+                {compressingMarkPaidScreenshot ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" />
+                )}
+                {markPaidScreenshot ? 'Screenshot selected' : 'Upload screenshot (optional)'}
+              </Button>
+              {markPaidScreenshot && (
+                <img
+                  src={markPaidScreenshot}
+                  alt="Payment proof"
+                  className="mt-2 h-20 w-20 rounded border object-cover"
+                />
+              )}
+            </div>
+          </div>
+          <Button className="w-full gap-1.5" disabled={savingMarkPaid} onClick={saveMarkPaid}>
+            {savingMarkPaid && <Loader2 className="h-4 w-4 animate-spin" />}
+            Confirm — mark as paid
           </Button>
         </DialogContent>
       </Dialog>

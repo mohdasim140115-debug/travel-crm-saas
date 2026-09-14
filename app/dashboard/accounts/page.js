@@ -134,7 +134,7 @@ export default function AccountsDashboardPage() {
             label: 'Pending Payments',
             value: data?.pendingPayments,
             icon: CreditCard,
-            href: '/dashboard/invoices',
+            href: '/dashboard/invoices?filter=pending',
             accent: 'warning',
           },
           {

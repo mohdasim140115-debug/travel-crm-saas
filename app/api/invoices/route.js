@@ -94,6 +94,7 @@ export async function POST(request) {
       dueDate,
       invoiceType = 'proforma',
       amountPaid = 0,
+      paymentScreenshot = '',
     } = body
 
     if (!clientName || !items || !subtotal || !dueDate) {
@@ -124,6 +125,7 @@ export async function POST(request) {
       discount,
       totalAmount,
       amountPaid: paid,
+      paymentScreenshot: paymentScreenshot || '',
       paymentStatus,
       dueDate: new Date(dueDate),
       createdBy: authResult.user.userId,

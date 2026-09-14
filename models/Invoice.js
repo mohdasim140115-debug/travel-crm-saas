@@ -108,6 +108,10 @@ const invoiceSchema = new mongoose.Schema(
       enum: ['unpaid', 'partial', 'paid', 'overdue'],
       default: 'unpaid',
     },
+    /** Proof of payment for an Advance/Partial invoice (compressed client-side
+     * to well under 300KB, same pattern as a hotel advance screenshot) —
+     * Accounts attaches this right when billing what was actually received. */
+    paymentScreenshot: String,
     payments: [
       {
         amount: Number,
