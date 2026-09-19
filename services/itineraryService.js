@@ -266,6 +266,19 @@ export async function updateItinerary(id, authUser, body) {
   delete updates.createdBy
   delete updates.shareToken
 
+  // Itinerary.pre('save') keeps numberOfTravelers in sync with
+  // adults+children, but this update goes through findOneAndUpdate, which
+  // Mongoose never runs document middleware for — so without this,
+  // numberOfTravelers is whatever it was at creation forever, and every PDF/
+  // preview that prefers it over a fresh adults+children sum (see
+  // lib/pdf/itineraryPdf.js) shows a stale traveler count after any edit.
+  if (updates.numberOfAdults !== undefined || updates.numberOfChildren !== undefined) {
+    const current = await Itinerary.findOne(filter).select('numberOfAdults numberOfChildren').lean()
+    const adults = updates.numberOfAdults !== undefined ? Number(updates.numberOfAdults) || 0 : (current?.numberOfAdults ?? 1)
+    const children = updates.numberOfChildren !== undefined ? Number(updates.numberOfChildren) || 0 : (current?.numberOfChildren ?? 0)
+    updates.numberOfTravelers = adults + children || 1
+  }
+
   const itinerary = await Itinerary.findOneAndUpdate(filter, updates, { new: true })
   if (!itinerary) return null
 
