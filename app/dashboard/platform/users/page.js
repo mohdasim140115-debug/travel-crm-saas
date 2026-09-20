@@ -29,7 +29,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { KeyRound, Loader2, Plus, Search, Trash2, UserCog } from 'lucide-react'
+import {
+  Building2,
+  KeyRound,
+  Loader2,
+  Plus,
+  RotateCcw,
+  Search,
+  ShieldOff,
+  Trash2,
+  UserCheck,
+  UserCog,
+  Users as UsersIcon,
+  Clock,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/crm/PageHeader'
 import { TableShell } from '@/components/crm/TableShell'
@@ -46,6 +59,50 @@ const ROLES = [
   { value: 'superadmin', label: 'Platform Super Admin' },
 ]
 
+// Deterministic pastel color per user (by name) so the same person always
+// gets the same avatar tint across reloads, without storing anything.
+const AVATAR_PALETTE = [
+  'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  'bg-pink-500/15 text-pink-600 dark:text-pink-400',
+  'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
+]
+
+function avatarColor(name) {
+  const str = name || '?'
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) | 0
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length]
+}
+
+function initials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase()
+}
+
+function formatTime(value) {
+  if (!value) return null
+  return new Date(value).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+}
+
+// A compact page-number strip (1 2 3 … 18) instead of just Prev/Next — same
+// `page`/`setPage` state underneath, just a friendlier way to jump around.
+function pageWindow(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = new Set([1, total, current - 1, current, current + 1])
+  return Array.from(pages)
+    .filter((p) => p >= 1 && p <= total)
+    .sort((a, b) => a - b)
+    .reduce((acc, p, i, arr) => {
+      if (i > 0 && p - arr[i - 1] > 1) acc.push('…')
+      acc.push(p)
+      return acc
+    }, [])
+}
+
 const EMPTY_USER = {
   name: '',
   email: '',
@@ -59,7 +116,13 @@ const EMPTY_USER = {
 export default function PlatformUsersPage() {
   const [rows, setRows] = useState([])
   const [agencies, setAgencies] = useState([])
-  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 })
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0, limit: 50 })
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    pendingUsers: 0,
+    suspendedUsers: 0,
+  })
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
@@ -90,7 +153,8 @@ export default function PlatformUsersPage() {
       const data = await saFetch(`/api/superadmin/users?${qs}`)
       setRows(data.users || [])
       setAgencies(data.agencies || [])
-      setPagination(data.pagination || { page: 1, pages: 1, total: 0 })
+      setPagination(data.pagination || { page: 1, pages: 1, total: 0, limit: 50 })
+      if (data.stats) setStats(data.stats)
     } catch (e) {
       toast.error(e.message)
     } finally {
@@ -162,6 +226,21 @@ export default function PlatformUsersPage() {
     }
   }
 
+  const resetFilters = () => {
+    setPage(1)
+    setSearch('')
+    setRoleFilter('all')
+    setTeamFilter('all')
+    setStatusFilter('all')
+  }
+
+  const STAT_CARDS = [
+    { label: 'Total Users', value: stats.totalUsers, caption: 'Across all agencies', icon: UsersIcon, tint: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+    { label: 'Active Users', value: stats.activeUsers, caption: 'Currently active', icon: UserCheck, tint: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
+    { label: 'Pending Approval', value: stats.pendingUsers, caption: 'Awaiting approval', icon: Clock, tint: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+    { label: 'Suspended', value: stats.suspendedUsers, caption: 'Temporarily blocked', icon: ShieldOff, tint: 'bg-destructive/10 text-destructive' },
+  ]
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -174,9 +253,26 @@ export default function PlatformUsersPage() {
         }
       />
 
-      <Card>
-        <CardContent className="grid gap-3 pt-6 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="relative lg:col-span-1">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {STAT_CARDS.map((s) => (
+          <Card key={s.label} className="gap-0 border-border/60 py-4 shadow-sm">
+            <CardContent className="flex items-center gap-3 px-4">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${s.tint}`}>
+                <s.icon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">{s.label}</p>
+                <p className="text-2xl font-bold leading-tight">{s.value}</p>
+                <p className="text-xs text-muted-foreground">{s.caption}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="py-4">
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="relative flex-1 sm:min-w-50">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-9"
@@ -195,7 +291,7 @@ export default function PlatformUsersPage() {
               setTeamFilter(v)
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full sm:w-45">
               <SelectValue placeholder="Agency" />
             </SelectTrigger>
             <SelectContent>
@@ -214,7 +310,7 @@ export default function PlatformUsersPage() {
               setRoleFilter(v)
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full sm:w-42.5">
               <SelectValue placeholder="Role" />
             </SelectTrigger>
             <SelectContent>
@@ -233,7 +329,7 @@ export default function PlatformUsersPage() {
               setStatusFilter(v)
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full sm:w-42.5">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -243,21 +339,37 @@ export default function PlatformUsersPage() {
               <SelectItem value="suspended">Suspended</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={resetFilters}>
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset
+          </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent className="pt-6">
-          <TableShell minWidth="62rem">
+          <TableShell minWidth="80rem">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Agency</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last login</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    User
+                  </TableHead>
+                  <TableHead className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Agency
+                  </TableHead>
+                  <TableHead className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Role
+                  </TableHead>
+                  <TableHead className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Status
+                  </TableHead>
+                  <TableHead className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Last login
+                  </TableHead>
+                  <TableHead className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -275,20 +387,32 @@ export default function PlatformUsersPage() {
                   </TableRow>
                 ) : (
                   rows.map((u) => (
-                    <TableRow key={String(u._id)}>
-                      <TableCell>
-                        <p className="font-medium">{u.name}</p>
-                        <p className="text-xs text-muted-foreground">{u.email}</p>
+                    <TableRow key={String(u._id)} className="even:bg-muted/30">
+                      <TableCell className="px-4 py-5 align-middle">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarColor(u.name)}`}
+                          >
+                            {initials(u.name)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-base font-semibold">{u.name}</p>
+                            <p className="truncate text-sm text-muted-foreground">{u.email}</p>
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-4 align-middle">
                         <Select
                           value={u.teamId?._id ? String(u.teamId._id) : ''}
                           onValueChange={(teamId) =>
                             patchUser(u._id, { teamId }, 'Moved to a different agency')
                           }
                         >
-                          <SelectTrigger className="w-[170px]">
-                            <SelectValue placeholder={u.role === 'superadmin' ? 'Platform' : 'None'} />
+                          <SelectTrigger className="w-52" title={u.teamId?.name || ''}>
+                            <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="min-w-0 flex-1 truncate text-left">
+                              <SelectValue placeholder={u.role === 'superadmin' ? 'Platform' : 'None'} />
+                            </span>
                           </SelectTrigger>
                           <SelectContent>
                             {agencies.map((a) => (
@@ -299,9 +423,9 @@ export default function PlatformUsersPage() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-4 align-middle">
                         <Select value={u.role} onValueChange={(role) => patchUser(u._id, { role })}>
-                          <SelectTrigger className="w-[160px]">
+                          <SelectTrigger className="w-42.5">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -313,9 +437,9 @@ export default function PlatformUsersPage() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-4 align-middle">
                         {u.approvalStatus === 'pending' ? (
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             <Badge className="bg-warning text-white">Pending approval</Badge>
                             {u.requestedBy?.name && (
                               <p className="text-xs text-muted-foreground">by {u.requestedBy.name}</p>
@@ -327,14 +451,25 @@ export default function PlatformUsersPage() {
                           <Badge variant="secondary">Active</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {u.lastLogin ? formatDate(u.lastLogin) : 'Never'}
+                      <TableCell className="px-4 py-4 align-middle text-sm">
+                        {u.lastLogin ? (
+                          <>
+                            <p>{formatDate(u.lastLogin)}</p>
+                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                              {formatTime(u.lastLogin)}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">Never</span>
+                        )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-4 py-4 align-middle">
                         {u.approvalStatus === 'pending' ? (
-                          <div className="flex justify-end gap-1.5">
+                          <div className="flex flex-nowrap justify-end gap-1.5 whitespace-nowrap">
                             <Button
                               size="sm"
+                              className="h-8 px-3"
                               onClick={() =>
                                 patchUser(u._id, { approvalStatus: 'approved' }, 'Employee approved')
                               }
@@ -344,6 +479,7 @@ export default function PlatformUsersPage() {
                             <Button
                               size="sm"
                               variant="destructive"
+                              className="h-8 px-3"
                               onClick={() => {
                                 if (!confirm(`Decline the request to add ${u.email}?`)) return
                                 patchUser(u._id, { approvalStatus: 'rejected' }, 'Request declined')
@@ -353,10 +489,11 @@ export default function PlatformUsersPage() {
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex justify-end gap-1.5">
+                          <div className="flex flex-nowrap items-center justify-end gap-1.5 whitespace-nowrap">
                             <Button
                               size="sm"
                               variant="outline"
+                              className="h-8 px-3"
                               title="Suspend / restore"
                               onClick={() =>
                                 patchUser(u._id, { isBlocked: !u.isBlocked, isActive: !!u.isBlocked })
@@ -365,16 +502,18 @@ export default function PlatformUsersPage() {
                               {u.isBlocked ? 'Restore' : 'Suspend'}
                             </Button>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="outline"
+                              className="h-8 w-8"
                               title="Reset password"
                               onClick={() => setResetTarget(u)}
                             >
                               <KeyRound className="h-3.5 w-3.5" />
                             </Button>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="outline"
+                              className="h-8 w-8"
                               title="Impersonate for support"
                               disabled={u.role === 'superadmin' || u.isBlocked || !u.teamId}
                               onClick={() => impersonate(u)}
@@ -382,8 +521,9 @@ export default function PlatformUsersPage() {
                               <UserCog className="h-3.5 w-3.5" />
                             </Button>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="destructive"
+                              className="h-8 w-8"
                               title="Remove"
                               onClick={() => removeUser(u)}
                             >
@@ -399,24 +539,51 @@ export default function PlatformUsersPage() {
             </Table>
           </TableShell>
 
-          {pagination.pages > 1 && (
-            <div className="mt-4 flex items-center justify-between text-sm">
+          {!loading && rows.length > 0 && (
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-4 text-sm">
               <span className="text-muted-foreground">
-                Page {pagination.page} of {pagination.pages} · {pagination.total} users
+                Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
+                {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} users
               </span>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={page >= pagination.pages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </Button>
-              </div>
+              {pagination.pages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 w-8 p-0"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    ‹
+                  </Button>
+                  {pageWindow(pagination.page, pagination.pages).map((p, i) =>
+                    p === '…' ? (
+                      <span key={`e${i}`} className="px-1 text-muted-foreground">
+                        …
+                      </span>
+                    ) : (
+                      <Button
+                        key={p}
+                        size="sm"
+                        variant={p === pagination.page ? 'default' : 'outline'}
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 w-8 p-0"
+                    disabled={page >= pagination.pages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    ›
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

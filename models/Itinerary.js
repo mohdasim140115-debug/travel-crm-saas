@@ -233,6 +233,13 @@ const itinerarySchema = new mongoose.Schema(
         type: { type: String, enum: ['percent', 'flat'], default: 'flat' },
         percent: Number,
         amount: Number,
+        // Which budget tier this charge belongs to ('high' | 'low') when
+        // `budgetTiers` is on — omitted for a normal single-package trip.
+        // Without this declared, Mongoose's per-subdocument strict mode
+        // silently dropped it on every save, so a tier-scoped extra charge
+        // would look fine live but lose its tier (and drop out of both
+        // tiers' totals) the moment the itinerary was saved and reopened.
+        category: String,
       },
     ],
     days: [mongoose.Schema.Types.Mixed],

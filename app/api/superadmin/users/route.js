@@ -48,23 +48,36 @@ export async function GET(request) {
     else if (status === 'suspended') filter.$and = [{ $or: [{ isActive: false }, { isBlocked: true }] }]
     else if (status === 'pending') filter.approvalStatus = 'pending'
 
-    const [users, total, agencies] = await Promise.all([
-      User.find(filter)
-        .select(SAFE_FIELDS)
-        .populate('teamId', 'name plan isActive')
-        .populate('requestedBy', 'name email')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      User.countDocuments(filter),
-      Team.find({}).select('name').sort({ name: 1 }).lean(),
-    ])
+    const [users, total, agencies, totalUsers, activeUsers, pendingUsers, suspendedUsers] =
+      await Promise.all([
+        User.find(filter)
+          .select(SAFE_FIELDS)
+          .populate('teamId', 'name plan isActive')
+          .populate('requestedBy', 'name email')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        User.countDocuments(filter),
+        Team.find({}).select('name').sort({ name: 1 }).lean(),
+        // Platform-wide counters for the summary cards — always unfiltered,
+        // so they read as "the whole platform" no matter what's searched.
+        User.countDocuments({}),
+        User.countDocuments({ isActive: true, isBlocked: { $ne: true } }),
+        User.countDocuments({ approvalStatus: 'pending' }),
+        User.countDocuments({ $or: [{ isActive: false }, { isBlocked: true }] }),
+      ])
 
     return Response.json({
       users,
       agencies,
       pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) },
+      stats: {
+        totalUsers,
+        activeUsers,
+        pendingUsers,
+        suspendedUsers,
+      },
     })
   } catch (error) {
     console.error('Superadmin users list error:', error)
