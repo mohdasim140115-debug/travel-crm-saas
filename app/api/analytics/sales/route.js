@@ -106,7 +106,10 @@ export async function GET(request) {
     let todayFollowUps = 0
     for (const fu of latestPendingPerLead.values()) {
       const d = new Date(fu.scheduledDate)
-      if (d < todayStart) pendingFollowUps++
+      // A follow-up due earlier today (time already passed) is just as
+      // overdue as one from a previous day — only a still-upcoming time
+      // today counts as "today", not "pending".
+      if (d < now) pendingFollowUps++
       else if (d < todayEnd) todayFollowUps++
     }
 

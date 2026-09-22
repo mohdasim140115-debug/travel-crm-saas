@@ -27,16 +27,17 @@ import { displayEmail, isPlaceholderEmail } from '@/utils/crm'
 import { pickerToIso } from '@/lib/datetime'
 
 // A lead's currently-scheduled (pending) follow-up date — blank if none was
-// ever added, red once overdue, solid yellow if it's due today.
+// ever added, red once overdue (including a today follow-up whose time has
+// already passed), solid yellow if it's due today and still upcoming.
 function FollowUpCell({ date }) {
   if (!date) return <span className="text-muted-foreground">—</span>
   const d = new Date(date)
   const now = new Date()
   const isToday =
     d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
-  const overdue = !isToday && d.getTime() < now.getTime()
+  const overdue = d.getTime() < now.getTime()
   const colorClass = overdue
-    ? 'bg-destructive/15 text-destructive'
+    ? 'bg-destructive text-white'
     : isToday
       ? 'bg-yellow-400 text-yellow-950'
       : 'bg-warning/15 text-warning'
@@ -96,9 +97,8 @@ function LeadsContent() {
     source: 'direct',
     autoAssign: true,
     lostReason: '',
-    nextFollowUpAt: '',
-    followUpType: 'call',
     followUpDate: '',
+    remark: '',
   })
 
   const { options: statusOptions } = useMasters('lead_status', [
@@ -114,9 +114,6 @@ function LeadsContent() {
     'direct', 'facebook_ads', 'instagram', 'website', 'referral', 'social', 'other',
   ])
   const { options: lostReasons } = useMasters('lost_reason', [])
-  const { options: followUpTypes } = useMasters('follow_up_type', [
-    'call', 'email', 'whatsapp', 'meeting', 'site_visit',
-  ])
 
   const openPreview = (id) => {
     setPreviewId(id)
@@ -254,9 +251,8 @@ function LeadsContent() {
       source: 'direct',
       autoAssign: true,
       lostReason: '',
-      nextFollowUpAt: '',
-      followUpType: 'call',
       followUpDate: '',
+      remark: '',
     })
     setShowModal(true)
   }
@@ -275,11 +271,8 @@ function LeadsContent() {
       status: lead.status,
       source: lead.source,
       lostReason: lead.lostReason || '',
-      nextFollowUpAt: lead.lostDetails?.nextFollowUpAt
-        ? new Date(lead.lostDetails.nextFollowUpAt).toISOString().slice(0, 16)
-        : '',
-      followUpType: lead.lostDetails?.followUpType || 'call',
       followUpDate: '',
+      remark: '',
     })
     setShowModal(true)
   }
@@ -293,13 +286,12 @@ function LeadsContent() {
       const endpoint = editingId ? `/api/leads/${editingId}` : '/api/leads'
 
       const payload = { ...formData }
+      // Not a Lead field — it's a dated Remarks (💬) log entry, written
+      // separately below so editing never overwrites past conversation notes.
+      delete payload.remark
       if (formData.status === 'lost') {
         payload.lostReason = formData.lostReason
-        payload.lostDetails = {
-          nextFollowUpAt: formData.nextFollowUpAt || null,
-          followUpType: formData.followUpType,
-          remarks: formData.notes,
-        }
+        payload.lostDetails = { remarks: formData.notes }
       }
 
       const response = await fetch(endpoint, {
@@ -330,13 +322,7 @@ function LeadsContent() {
       const followUpAssignee =
         u.id || u.userId || u._id || newLead?.assignedTo?._id || newLead?.assignedTo
       let followUpSpec = null
-      if (formData.status === 'lost' && formData.nextFollowUpAt && newLead?._id) {
-        followUpSpec = {
-          type: formData.followUpType,
-          scheduledDate: pickerToIso(formData.nextFollowUpAt),
-          description: formData.notes || `Lost lead follow-up (${formData.lostReason || 'no reason'})`,
-        }
-      } else if (needsGenericFollowUp && formData.followUpDate && newLead?._id) {
+      if (needsGenericFollowUp && formData.followUpDate && newLead?._id) {
         // Any status the owner flagged "Requires follow-up" (Settings → Lead
         // Statuses), just with a plain date instead of Lost's reason/type.
         followUpSpec = {
@@ -356,6 +342,23 @@ function LeadsContent() {
         } catch (err) {
           console.error('Follow-up creation failed:', err)
           followUpFailed = true
+        }
+      }
+
+      // A remark typed here while editing — a dated log entry, not a field
+      // on the lead itself, so it's written to the timeline separately and
+      // never overwrites the lead's existing notes. Best-effort: if this one
+      // write fails, the lead update itself has already gone through.
+      if (editingId && formData.remark.trim()) {
+        try {
+          await mutateJson(`/api/leads/${editingId}/timeline`, {
+            token,
+            retries: 0,
+            body: { type: 'note', title: 'Remark', note: formData.remark.trim() },
+          })
+        } catch (err) {
+          console.error('Remark save failed:', err)
+          toast.error('Lead updated, but the remark could not be saved. Add it from the Remarks (💬) log.')
         }
       }
 
@@ -932,72 +935,6 @@ function LeadsContent() {
                 </p>
               </div>
 
-              {/* Lost follow-up fields — appear right below status when Lost */}
-              {formData.status === 'lost' && (
-                <div className="space-y-3 rounded-lg border border-red-200 bg-red-50/60 p-3">
-                  <p className="text-sm font-semibold text-red-700">Lost lead follow-up</p>
-
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">Lost reason</label>
-                    <Select
-                      value={formData.lostReason || 'none'}
-                      onValueChange={(v) =>
-                        setFormData({ ...formData, lostReason: v === 'none' ? '' : v })
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Select reason</SelectItem>
-                        {lostReasons.map((r) => (
-                          <SelectItem key={r.key} value={r.key}>
-                            {r.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">
-                      Next follow-up date &amp; time
-                    </label>
-                    <Input
-                      type="datetime-local"
-                      value={formData.nextFollowUpAt}
-                      onChange={(e) =>
-                        setFormData({ ...formData, nextFollowUpAt: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">Follow-up type</label>
-                    <Select
-                      value={formData.followUpType}
-                      onValueChange={(v) => setFormData({ ...formData, followUpType: v })}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {followUpTypes.map((t) => (
-                          <SelectItem key={t.key} value={t.key}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {editingId
-                      ? 'Add what was discussed in the Remarks (💬) log for this lead.'
-                      : 'Remarks are taken from the “Remarks / Conversation notes” field above.'}
-                  </p>
-                </div>
-              )}
-
               {/* Generic follow-up date — appears for any status the owner
                   flagged "Requires follow-up" in Settings → Lead Statuses. */}
               {needsGenericFollowUp && (
@@ -1049,6 +986,51 @@ function LeadsContent() {
                   <p className="text-xs text-muted-foreground">
                     Adds a follow-up on this date under Follow-ups.
                   </p>
+                </div>
+              )}
+
+              {/* Editing an existing lead: a quick way to log this
+                * conversation without opening the separate Remarks (💬)
+                * dialog. Saved as a new dated timeline entry, same as that
+                * dialog does — never overwrites the lead's past notes. */}
+              {editingId && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Remark</label>
+                  <Textarea
+                    value={formData.remark}
+                    onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                    placeholder="What did you discuss with the client just now?"
+                    className="min-h-17.5"
+                  />
+                </div>
+              )}
+
+              {/* Lost follow-up fields — appear right below status when Lost */}
+              {formData.status === 'lost' && (
+                <div className="space-y-3 rounded-lg border border-red-200 bg-red-50/60 p-3">
+                  <p className="text-sm font-semibold text-red-700">Lost lead follow-up</p>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">Lost reason</label>
+                    <Select
+                      value={formData.lostReason || 'none'}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, lostReason: v === 'none' ? '' : v })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Select reason</SelectItem>
+                        {lostReasons.map((r) => (
+                          <SelectItem key={r.key} value={r.key}>
+                            {r.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
 
