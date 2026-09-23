@@ -85,14 +85,42 @@ function tripDaysFromForm(form) {
   return match ? Number(match[1]) : 1
 }
 
+// Same as above but the night count — what the hotel stays for a tier
+// should add up to, so a "6N/7D" trip's hotels always total 6 nights.
+export function tripNightsFromForm(form) {
+  const preset = DURATION_PRESETS.find((p) => p.value === form.duration)
+  if (preset?.nights != null) return preset.nights
+  const match = String(form.customDuration || '').match(/(\d+)\s*N/i)
+  return match ? Number(match[1]) : null
+}
+
+// The nights a stay actually books — the longest room-line duration, same
+// rule hotelNightsMap (PDF) and the auto check-in/out chaining effect use.
+function stayNightCount(stay) {
+  return Math.max(0, ...getRoomLines(stay).map((l) => Number(l.nights) || 0))
+}
+
 /** One "Night stays" card, scoped to a single budget tier when `category` is
  * set (or to the whole trip when it's null — the pre-budget-tier behavior).
  * Stays/hotels are matched by object reference rather than array index so
  * add/update/remove stay correct even though this card only sees its own
  * filtered slice of `form.nightStays`. */
-function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds, cnbCount }) {
+function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds, cnbCount, tripNights }) {
   const stays = (form.nightStays || []).filter((s) => (category ? s.category === category : !s.category))
   const hotelsForTier = (form.hotels || []).filter((h) => (category ? h.category === category : !h.category))
+
+  // The client is on this trip for `tripNights` nights total (from the
+  // duration picked in Details) — every night has to be at some hotel, so
+  // this tier's stays should add up to exactly that, not more or less.
+  const bookedNights = stays.reduce((sum, s) => sum + stayNightCount(s), 0)
+  const nightsMismatch = tripNights != null && stays.length > 0 && bookedNights !== tripNights
+
+  // A hotel picked here but with no night stay of its own is an alternate
+  // for a city that's already priced through another hotel (see the
+  // auto-add effect in StepCosting) — no room-type/price section for it,
+  // it just still appears as a hotel card in the PDF.
+  const pricedHotelIds = new Set(stays.map((s) => s.hotelId).filter(Boolean))
+  const alternateHotels = hotelsForTier.filter((h) => h.id && !pricedHotelIds.has(h.id))
 
   // Auto-add-missing-hotels and rate-sync both used to run here, once per
   // NightStaysCard instance. With "Multiple budget options" on, the High and
@@ -161,7 +189,23 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
             No hotels selected yet. Go back to the Hotels step and select {label ? `${label} ` : ''}hotels first.
           </p>
         )}
+        {nightsMismatch && (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-600">
+            {bookedNights < tripNights
+              ? `Nights are short — the trip is ${tripNights} nights but these stays only add up to ${bookedNights}.`
+              : `Nights are more than the trip — the trip is ${tripNights} nights but these stays add up to ${bookedNights}.`}
+          </p>
+        )}
         {stays.length === 0 && <p className="text-sm text-muted-foreground">No night stays added yet.</p>}
+        {alternateHotels.length > 0 && (
+          <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+            Shown as alternate option{alternateHotels.length > 1 ? 's' : ''} in the itinerary (same city, no
+            price of its own):{' '}
+            <span className="font-medium text-foreground">
+              {alternateHotels.map((h) => h.name).join(', ')}
+            </span>
+          </p>
+        )}
         {(() => {
           // First-appearance order of each distinct hotel in this tier's
           // list — the color assigned here is what a re-check-in card reuses
@@ -358,7 +402,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                     )}
                     <div className="grid gap-2 sm:grid-cols-5">
                       <div className="space-y-1 sm:col-span-2">
-                        <Label className="text-xs">Room Type</Label>
+                        <Label className="text-xs">Room Type *</Label>
                         <Select
                           value={line.roomType || ''}
                           onValueChange={(rt) => {
@@ -385,7 +429,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                         </Select>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Price/night (₹)</Label>
+                        <Label className="text-xs">Price/night (₹) *</Label>
                         <Input
                           type="number"
                           min={0}
@@ -399,7 +443,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">No. of Rooms</Label>
+                        <Label className="text-xs">No. of Rooms *</Label>
                         <Input
                           type="number"
                           min={1}
@@ -413,7 +457,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Nights</Label>
+                        <Label className="text-xs">Nights *</Label>
                         <Input
                           type="number"
                           min={1}
@@ -521,7 +565,9 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
  * number that includes the Low Budget hotel cost, or vice versa. */
 function ExtraChargesCard({ category, label, form, update, baseTotalForTier }) {
   const [percentInput, setPercentInput] = useState('')
+  const [percentReason, setPercentReason] = useState('')
   const [flatInput, setFlatInput] = useState('')
+  const [flatReason, setFlatReason] = useState('')
   const charges = (form.extraCharges || []).filter((e) => (category ? e.category === category : !e.category))
 
   const addPercentCharge = () => {
@@ -531,10 +577,17 @@ function ExtraChargesCard({ category, label, form, update, baseTotalForTier }) {
     update({
       extraCharges: [
         ...(form.extraCharges || []),
-        { label: `${percent}% charge`, type: 'percent', percent, amount, ...(category ? { category } : {}) },
+        {
+          label: percentReason.trim() ? `${percentReason.trim()} — ${percent}%` : `${percent}%`,
+          type: 'percent',
+          percent,
+          amount,
+          ...(category ? { category } : {}),
+        },
       ],
     })
     setPercentInput('')
+    setPercentReason('')
   }
 
   const addFlatCharge = () => {
@@ -543,10 +596,16 @@ function ExtraChargesCard({ category, label, form, update, baseTotalForTier }) {
     update({
       extraCharges: [
         ...(form.extraCharges || []),
-        { label: 'Extra charge', type: 'flat', amount, ...(category ? { category } : {}) },
+        {
+          label: flatReason.trim() || 'Extra charge',
+          type: 'flat',
+          amount,
+          ...(category ? { category } : {}),
+        },
       ],
     })
     setFlatInput('')
+    setFlatReason('')
   }
 
   const removeCharge = (charge) => {
@@ -566,11 +625,19 @@ function ExtraChargesCard({ category, label, form, update, baseTotalForTier }) {
           <Input
             type="number"
             placeholder="e.g. 15"
+            className="w-20 shrink-0"
             value={percentInput}
             onChange={(e) => setPercentInput(e.target.value)}
           />
           <span className="text-sm text-muted-foreground">%</span>
-          <Button type="button" size="sm" variant="outline" onClick={addPercentCharge}>
+          <Input
+            type="text"
+            placeholder="Reason (optional)"
+            className="min-w-0 flex-1"
+            value={percentReason}
+            onChange={(e) => setPercentReason(e.target.value)}
+          />
+          <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={addPercentCharge}>
             Add %
           </Button>
         </div>
@@ -578,10 +645,18 @@ function ExtraChargesCard({ category, label, form, update, baseTotalForTier }) {
           <Input
             type="number"
             placeholder="e.g. 2000"
+            className="w-28 shrink-0"
             value={flatInput}
             onChange={(e) => setFlatInput(e.target.value)}
           />
-          <Button type="button" size="sm" variant="outline" onClick={addFlatCharge}>
+          <Input
+            type="text"
+            placeholder="Reason (optional)"
+            className="min-w-0 flex-1"
+            value={flatReason}
+            onChange={(e) => setFlatReason(e.target.value)}
+          />
+          <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={addFlatCharge}>
             Add amount
           </Button>
         </div>
@@ -592,7 +667,7 @@ function ExtraChargesCard({ category, label, form, update, baseTotalForTier }) {
         ) : (
           charges.map((e, i) => (
             <span key={i} className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs">
-              {e.type === 'percent' ? `${e.percent}%` : e.label}
+              {e.label || (e.type === 'percent' ? `${e.percent}%` : 'Extra charge')}
               {` — ${formatPrice(e.amount)}`}
               <button
                 type="button"
@@ -662,8 +737,20 @@ export default function StepCosting({ form, update }) {
           .map((s) => s.hotelId)
           .filter(Boolean)
       )
+      // Two+ hotels picked for the same city are alternate options for the
+      // client to pick between — only the first one gets an actual costed
+      // night stay; the rest still show as hotel cards in the PDF, just with
+      // no room-type/price section of their own (see AlternateHotelsCard).
+      const coveredLocations = new Set(
+        nightStays
+          .filter((s) => (category ? s.category === category : !s.category))
+          .map((s) => String(s.location || '').trim().toLowerCase())
+          .filter(Boolean)
+      )
       for (const h of hotelsForTier) {
         if (!h.id || existingIds.has(h.id)) continue
+        const locKey = String(h.location || '').trim().toLowerCase()
+        if (locKey && coveredLocations.has(locKey)) continue
         const m = hotelMasters.find((hm) => hm._id === h.id)
         const firstRoom = m?.rooms?.[0]
         additions.push({
@@ -682,6 +769,7 @@ export default function StepCosting({ form, update }) {
           dayNumber: nextDayNumber++,
           ...(category ? { category } : {}),
         })
+        if (locKey) coveredLocations.add(locKey)
       }
     }
     if (additions.length === 0) return
@@ -818,6 +906,7 @@ export default function StepCosting({ form, update }) {
   const totalPax = adults + children
   const extraBeds = Number(form.extraBeds) || 0
   const cnbCount = Number(form.cnbCount) || 0
+  const tripNights = tripNightsFromForm(form)
 
   const nightStayTotal = (form.nightStays || []).reduce((sum, s) => {
     const roomsTotal = getRoomLines(s).reduce((lineSum, l) => {
@@ -1157,12 +1246,13 @@ export default function StepCosting({ form, update }) {
           <NightStaysCard
             key={tier.key}
             category={tier.key}
-            label={tier.label}
+            label={budgetTierLabel(tier.key, form.budgetTierLabels)}
             form={form}
             update={update}
             hotelMasters={hotelMasters}
             extraBeds={extraBeds}
             cnbCount={cnbCount}
+            tripNights={tripNights}
           />
         ))
       ) : (
@@ -1174,6 +1264,7 @@ export default function StepCosting({ form, update }) {
           hotelMasters={hotelMasters}
           extraBeds={extraBeds}
           cnbCount={cnbCount}
+          tripNights={tripNights}
         />
       )}
 
@@ -1196,7 +1287,7 @@ export default function StepCosting({ form, update }) {
                   <ExtraChargesCard
                     key={tier.key}
                     category={tier.key}
-                    label={tier.label}
+                    label={budgetTierLabel(tier.key, form.budgetTierLabels)}
                     form={form}
                     update={update}
                     baseTotalForTier={tierBase}
@@ -1212,7 +1303,7 @@ export default function StepCosting({ form, update }) {
             <div className="grid gap-3 sm:grid-cols-2">
               {categoryTotals.map(({ category, total }) => (
                 <div key={category} className="rounded-xl border bg-primary/5 px-5 py-4">
-                  <p className="text-sm text-muted-foreground">{budgetTierLabel(category)} package total</p>
+                  <p className="text-sm text-muted-foreground">{budgetTierLabel(category, form.budgetTierLabels)} package total</p>
                   <p className="text-2xl font-bold text-primary">{formatPrice(total)}</p>
                 </div>
               ))}

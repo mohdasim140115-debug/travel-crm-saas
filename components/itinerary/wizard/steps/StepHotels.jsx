@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { BUDGET_TIERS } from '@/modules/itinerary/studio'
+import { BUDGET_TIERS, budgetTierLabel } from '@/modules/itinerary/studio'
 
 function formatPrice(n) {
   if (!n && n !== 0) return null
@@ -193,10 +193,24 @@ export default function StepHotels({ form, update }) {
         <CardContent>
           <div className="flex items-center justify-between rounded-lg border border-dashed p-3">
             <div>
-              <Label className="text-sm font-medium">Multiple budget options (Low / High)</Label>
+              <Label className="text-sm font-medium">
+                Multiple budget options ({budgetTierLabel('low', form.budgetTierLabels)} /{' '}
+                {budgetTierLabel('high', form.budgetTierLabels)})
+              </Label>
               <p className="text-xs text-muted-foreground">
-                Turn on to build two separate hotel picks — a Low Budget option and a High Budget
-                option — each with its own night stays, price, and section in the PDF.
+                {(form.packageCategories || []).length === 2 ? (
+                  <>
+                    Set automatically since two Package categories are picked in Details — a{' '}
+                    {budgetTierLabel('low', form.budgetTierLabels)} option and a{' '}
+                    {budgetTierLabel('high', form.budgetTierLabels)} option, each with its own
+                    night stays, price, and section in the PDF.
+                  </>
+                ) : (
+                  <>
+                    Turn on to build two separate hotel picks — a Low Budget option and a High
+                    Budget option — each with its own night stays, price, and section in the PDF.
+                  </>
+                )}
               </p>
             </div>
             <Switch
@@ -208,17 +222,20 @@ export default function StepHotels({ form, update }) {
       </Card>
 
       {form.budgetTiers ? (
-        BUDGET_TIERS.map((tier) => (
-          <Card key={tier.key} className="border-border/60 shadow-sm">
-            <CardHeader>
-              <CardTitle>{tier.label} hotels</CardTitle>
-              <CardDescription>Hotels picked here appear under {tier.label} in Costing and the PDF.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <HotelPicker category={tier.key} form={form} update={update} />
-            </CardContent>
-          </Card>
-        ))
+        BUDGET_TIERS.map((tier) => {
+          const label = budgetTierLabel(tier.key, form.budgetTierLabels)
+          return (
+            <Card key={tier.key} className="border-border/60 shadow-sm">
+              <CardHeader>
+                <CardTitle>{label} hotels</CardTitle>
+                <CardDescription>Hotels picked here appear under {label} in Costing and the PDF.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <HotelPicker category={tier.key} form={form} update={update} />
+              </CardContent>
+            </Card>
+          )
+        })
       ) : (
         <Card className="border-border/60 shadow-sm">
           <CardContent className="pt-6">

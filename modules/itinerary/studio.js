@@ -44,8 +44,38 @@ export const BUDGET_TIERS = [
   { key: 'low', label: 'Low Budget' },
 ]
 
-export function budgetTierLabel(key) {
-  return BUDGET_TIERS.find((t) => t.key === key)?.label || key
+/** A tier's display label — the agent's own Package category names when two
+ * were picked in Details (e.g. "Platinum" / "Gold" instead of the generic
+ * "High Budget" / "Low Budget"), falling back to the generic label whenever
+ * that override isn't set. `customLabels` is an itinerary's/form's own
+ * `budgetTierLabels` object, e.g. `{ high: 'Platinum', low: 'Gold' }`. */
+export function budgetTierLabel(key, customLabels) {
+  return customLabels?.[key] || BUDGET_TIERS.find((t) => t.key === key)?.label || key
+}
+
+// Known package categories, most premium first — used to decide which of
+// two picked categories becomes the "High" tier and which becomes "Low".
+// A category not in this list (a team's own custom one) falls back to its
+// position in that team's configured list instead.
+const KNOWN_CATEGORY_RANK = { luxury: 4, platinum: 3, gold: 2, silver: 1, budget: 0 }
+
+function categoryRank(name, allOptions = []) {
+  const key = String(name || '').trim().toLowerCase()
+  if (KNOWN_CATEGORY_RANK[key] != null) return KNOWN_CATEGORY_RANK[key]
+  const idx = allOptions.findIndex((o) => o.label === name)
+  return idx >= 0 ? idx : 0
+}
+
+/** Given exactly two picked Package categories, decide which is the
+ * "High Budget" tier and which is "Low" (the more premium one is High),
+ * for the `budgetTierLabels` stored on the itinerary. Returns `{}` for
+ * anything other than exactly two distinct categories. */
+export function computeBudgetTierLabels(categories, allOptions = []) {
+  const names = [...new Set((categories || []).filter(Boolean))]
+  if (names.length !== 2) return {}
+  const [a, b] = names
+  const [high, low] = categoryRank(a, allOptions) >= categoryRank(b, allOptions) ? [a, b] : [b, a]
+  return { high, low }
 }
 
 /** Builds a night-stay entry from a hotel master record, mirroring what
@@ -169,6 +199,8 @@ export const DEFAULT_STUDIO_FORM = {
   destination: 'Kashmir',
   country: 'India',
   packageCategory: 'Silver',
+  packageCategories: ['Silver'],
+  budgetTierLabels: {},
   duration: '6N/7D',
   customDuration: '',
   bannerImage: '',
@@ -257,6 +289,8 @@ export function studioFormToPayload(form) {
     destination: form.destination || 'Kashmir',
     country: form.country || 'India',
     packageCategory: form.packageCategory,
+    packageCategories: form.packageCategories || [],
+    budgetTierLabels: form.budgetTierLabels || {},
     duration,
     marketingOverview: form.marketingOverview,
     bannerImage: gallery[0] || form.bannerImage,
@@ -329,6 +363,8 @@ export function itineraryToStudioForm(data) {
     destination: it.destination || 'Kashmir',
     country: it.country || 'India',
     packageCategory: it.packageCategory || 'Silver',
+    packageCategories: it.packageCategories?.length ? it.packageCategories : it.packageCategory ? [it.packageCategory] : ['Silver'],
+    budgetTierLabels: it.budgetTierLabels || {},
     duration: preset,
     customDuration: preset === 'custom' ? it.duration || '' : '',
     bannerImage: it.bannerImage || DEFAULT_STUDIO_FORM.bannerImage,

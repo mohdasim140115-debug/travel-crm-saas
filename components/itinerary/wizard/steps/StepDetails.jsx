@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Pencil, User, Award, CalendarRange, MapPinned } from 'lucide-react'
+import { Pencil, User, Award, CalendarRange, MapPinned, Check } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,6 +17,8 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@
 import { Badge } from '@/components/ui/badge'
 import { PACKAGE_CATEGORIES, DURATION_PRESETS } from '@/lib/data/masterRepository'
 import { useMasters } from '@/hooks/useMasters'
+import { computeBudgetTierLabels } from '@/modules/itinerary/studio'
+import { cn } from '@/lib/utils'
 
 function leadName(lead) {
   return [lead.firstName, lead.lastName].filter(Boolean).join(' ')
@@ -59,6 +61,30 @@ export default function StepDetails({ form, update }) {
   const selectLead = (lead) => {
     update({ customerName: leadName(lead), leadId: String(lead._id) })
     setLeadPopoverOpen(false)
+  }
+
+  // Picking a second category turns on the Hotels step's "Multiple budget
+  // options" automatically — the two categories become the High/Low tier
+  // names (more premium one is High) instead of the generic labels. Picking
+  // back down to one turns tiers off again.
+  const toggleCategory = (label) => {
+    const current = form.packageCategories || []
+    const isSelected = current.includes(label)
+    let next
+    if (isSelected) {
+      next = current.filter((c) => c !== label)
+    } else if (current.length >= 2) {
+      next = [current[1], label] // drop the oldest pick, keep the most recent + this one
+    } else {
+      next = [...current, label]
+    }
+    if (next.length === 0) return // always keep at least one category picked
+    update({
+      packageCategories: next,
+      packageCategory: next.join(' & '),
+      budgetTiers: next.length === 2,
+      budgetTierLabels: computeBudgetTierLabels(next, packageCategoryOptions),
+    })
   }
 
   const applyDuration = (value) => {
@@ -163,22 +189,44 @@ export default function StepDetails({ form, update }) {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-row items-center gap-2 sm:gap-3">
-          <Label className="flex w-20 shrink-0 items-center gap-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-accent-secondary sm:w-36 sm:gap-1.5 sm:text-xs">
+        <div className="flex flex-col gap-2 sm:gap-3 md:col-span-2 md:flex-row md:items-start">
+          <Label className="flex w-20 shrink-0 items-center gap-1 pt-2 text-[10px] font-bold uppercase leading-tight tracking-wide text-accent-secondary sm:w-36 sm:gap-1.5 sm:text-xs">
             <Award className="h-3.5 w-3.5" /> Package category *
           </Label>
-          <Select value={form.packageCategory} onValueChange={(v) => update({ packageCategory: v })}>
-            <SelectTrigger className="min-w-0 w-full flex-1 rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {packageCategoryOptions.map((c) => (
-                <SelectItem key={c.key} value={c.label}>
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap gap-2">
+              {packageCategoryOptions.map((c) => {
+                const isSelected = (form.packageCategories || []).includes(c.label)
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => toggleCategory(c.label)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold transition-all',
+                      isSelected
+                        ? 'border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/30'
+                        : 'border-border/70 bg-muted/40 text-muted-foreground hover:border-primary/50 hover:bg-primary/10 hover:text-primary'
+                    )}
+                  >
+                    {isSelected && <Check className="h-3.5 w-3.5" />}
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {(form.packageCategories || []).length === 2 ? (
+                <>
+                  Two picked — this itinerary will offer both a{' '}
+                  <span className="font-medium text-foreground">{form.budgetTierLabels?.high}</span> and a{' '}
+                  <span className="font-medium text-foreground">{form.budgetTierLabels?.low}</span> package.
+                </>
+              ) : (
+                'Pick a second one to build two budget options (High/Low) for this client to choose from.'
+              )}
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-row items-center gap-2 sm:gap-3">

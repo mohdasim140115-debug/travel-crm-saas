@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import WizardHeader from './WizardHeader'
 import WizardStepper from './WizardStepper'
 import WizardFooter from './WizardFooter'
@@ -11,7 +13,7 @@ import StepDetails from './steps/StepDetails'
 import StepVisuals from './steps/StepVisuals'
 import StepPlan from './steps/StepPlan'
 import StepHotels from './steps/StepHotels'
-import StepCosting from './steps/StepCosting'
+import StepCosting, { tripNightsFromForm } from './steps/StepCosting'
 import StepInclusions from './steps/StepInclusions'
 import StepTerms from './steps/StepTerms'
 import {
@@ -19,6 +21,8 @@ import {
   STUDIO_STEPS,
   itineraryToStudioForm,
   studioFormToPayload,
+  getRoomLines,
+  BUDGET_TIERS,
 } from '@/modules/itinerary/studio'
 import { useItinerary } from '@/hooks/useItineraries'
 import { DURATION_PRESETS } from '@/lib/data/masterRepository'
@@ -55,6 +59,53 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
     window.scrollTo({ top: 0, behavior: 'auto' })
     document.querySelector('main')?.scrollTo({ top: 0, behavior: 'auto' })
   }, [step])
+
+  // A single floating button, on every step, that jumps to the bottom of
+  // this (often long) step and back — instead of hand-scrolling through a
+  // whole day plan or costing form just to reach Continue and back up again.
+  // Which element actually scrolls varies by screen size (the dashboard
+  // shell's own <main>, or the window) — whichever one genuinely overflows
+  // is the real one; picking blindly made this always read as "at bottom".
+  const [atBottom, setAtBottom] = useState(false)
+
+  const getScroller = useCallback(() => {
+    const mainEl = document.querySelector('main')
+    if (mainEl && mainEl.scrollHeight > mainEl.clientHeight + 10) return mainEl
+    return window
+  }, [])
+
+  const scrollMetrics = useCallback((scroller) => {
+    if (scroller === window) {
+      return { top: window.scrollY, height: document.documentElement.scrollHeight, view: window.innerHeight }
+    }
+    return { top: scroller.scrollTop, height: scroller.scrollHeight, view: scroller.clientHeight }
+  }, [])
+
+  useEffect(() => {
+    const mainEl = document.querySelector('main')
+    const onScroll = () => {
+      const { top, height, view } = scrollMetrics(getScroller())
+      setAtBottom(top + view >= height - 40)
+    }
+    onScroll()
+    // Content (images, async-loaded options) can grow the page after the
+    // first paint, changing which element is the real scroller — recheck
+    // shortly after mount/step change, not just on scroll events.
+    const t = setTimeout(onScroll, 400)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    mainEl?.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('scroll', onScroll)
+      mainEl?.removeEventListener('scroll', onScroll)
+    }
+  }, [step, getScroller, scrollMetrics])
+
+  const jumpScroll = () => {
+    const scroller = getScroller()
+    const { height } = scrollMetrics(scroller)
+    scroller.scrollTo({ top: atBottom ? 0 : height, behavior: 'smooth' })
+  }
 
   useEffect(() => {
     if (initialData?.itinerary) {
@@ -133,6 +184,51 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
         return false
       }
       setShowPlanErrors(false)
+    }
+    if (step === 5) {
+      const stays = form.nightStays || []
+      for (const stay of stays) {
+        const lines = stay.roomLines || []
+        const bad = lines.find(
+          (l) => !l.roomType || !(Number(l.pricePerNight) > 0) || !(Number(l.roomCount) > 0) || !(Number(l.nights) > 0)
+        )
+        if (bad) {
+          toast.error(
+            `Fill in Room Type, Price/night, No. of Rooms and Nights for ${stay.hotelName || 'a hotel'} before continuing`
+          )
+          return false
+        }
+      }
+
+      // Whatever nights the trip's Duration says (e.g. "6N/7D" = 6 nights)
+      // is exactly what the hotel stays should add up to — short or over,
+      // either way the itinerary doesn't actually cover the trip.
+      const tripNights = tripNightsFromForm(form)
+      if (tripNights != null && form.budgetTiers) {
+        for (const tier of BUDGET_TIERS) {
+          const tierStays = stays.filter((s) => s.category === tier.key)
+          if (tierStays.length === 0) continue
+          const booked = tierStays.reduce(
+            (sum, s) => sum + Math.max(0, ...getRoomLines(s).map((l) => Number(l.nights) || 0)),
+            0
+          )
+          if (booked !== tripNights) {
+            toast.error(
+              `${tier.label}'s hotel nights (${booked}) don't add up to the trip's ${tripNights} nights`
+            )
+            return false
+          }
+        }
+      } else if (tripNights != null && stays.length > 0) {
+        const booked = stays.reduce(
+          (sum, s) => sum + Math.max(0, ...getRoomLines(s).map((l) => Number(l.nights) || 0)),
+          0
+        )
+        if (booked !== tripNights) {
+          toast.error(`Hotel nights (${booked}) don't add up to the trip's ${tripNights} nights`)
+          return false
+        }
+      }
     }
     return true
   }
@@ -222,6 +318,15 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
         form={form}
         update={update}
       />
+      <Button
+        type="button"
+        size="icon"
+        onClick={jumpScroll}
+        title={atBottom ? 'Scroll to top' : 'Scroll to bottom'}
+        className="fixed bottom-24 right-4 z-40 h-11 w-11 rounded-full shadow-lg sm:bottom-6 sm:right-6"
+      >
+        {atBottom ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+      </Button>
     </div>
   )
 }

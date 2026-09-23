@@ -142,6 +142,17 @@ const itinerarySchema = new mongoose.Schema(
     templateName: String,
     isTemplate: { type: Boolean, default: false },
     packageCategory: { type: String, trim: true, default: 'Silver' },
+    // Up to two Package categories (e.g. ["Platinum", "Gold"]) — picking two
+    // is what turns on budgetTiers automatically, with budgetTierLabels
+    // below carrying which one is "High" vs "Low".
+    packageCategories: [String],
+    /** When budgetTiers is on via two Package categories, the display name
+     * for each tier — e.g. { high: 'Platinum', low: 'Gold' } — instead of
+     * the generic "High Budget" / "Low Budget" label. */
+    budgetTierLabels: {
+      high: String,
+      low: String,
+    },
     duration: { type: String, trim: true },
     marketingOverview: String,
     supplements: [String],
