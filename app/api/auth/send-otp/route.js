@@ -12,7 +12,7 @@ export async function POST(request) {
       return Response.json({ error: 'Email is required' }, { status: 400 })
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() })
+    const user = await User.findOne({ email: email.trim().toLowerCase() })
     if (!user) {
       return Response.json({ error: 'User not found' }, { status: 404 })
     }

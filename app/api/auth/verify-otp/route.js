@@ -14,7 +14,7 @@ export async function POST(request) {
       )
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() })
+    const user = await User.findOne({ email: email.trim().toLowerCase() })
     if (!user) {
       return Response.json({ error: 'User not found' }, { status: 404 })
     }

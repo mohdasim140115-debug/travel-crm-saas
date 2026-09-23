@@ -173,8 +173,10 @@ export default function PlatformUsersPage() {
       await saFetch('/api/superadmin/users', { method: 'PATCH', body: { userId, ...body } })
       toast.success(message)
       load()
+      return true
     } catch (e) {
       toast.error(e.message)
+      return false
     }
   }
 
@@ -689,14 +691,17 @@ export default function PlatformUsersPage() {
               placeholder="New password (min 8 characters)"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
             />
             <Button
               className="w-full"
               disabled={newPassword.length < 8}
-              onClick={() => {
-                patchUser(resetTarget._id, { resetPassword: newPassword }, 'Password reset')
-                setResetTarget(null)
-                setNewPassword('')
+              onClick={async () => {
+                const ok = await patchUser(resetTarget._id, { resetPassword: newPassword }, 'Password reset')
+                if (ok) {
+                  setResetTarget(null)
+                  setNewPassword('')
+                }
               }}
             >
               Reset password

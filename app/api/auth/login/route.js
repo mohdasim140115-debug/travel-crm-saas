@@ -35,7 +35,7 @@ export async function POST(request) {
       )
     }
 
-    const user = await findUserByEmail(email.toLowerCase())
+    const user = await findUserByEmail(email.trim().toLowerCase())
     if (!user) {
       return Response.json(
         { error: 'Invalid credentials' },

@@ -63,7 +63,8 @@ export async function POST(request) {
     }
 
     await connectDB()
-    const existing = await User.findOne({ email: email.toLowerCase() })
+    const normalizedEmail = email.trim().toLowerCase()
+    const existing = await User.findOne({ email: normalizedEmail })
     if (existing) {
       return Response.json({ error: 'Email already registered' }, { status: 409 })
     }
@@ -75,7 +76,7 @@ export async function POST(request) {
 
     const user = await User.create({
       name,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       password: await hashPassword(password),
       role,
       teamId: authResult.user.teamId,
@@ -145,6 +146,13 @@ export async function PATCH(request) {
     const { userId, role, isActive, isBlocked, leadAssignmentWeight, resetPassword } = body
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return Response.json({ error: 'userId required' }, { status: 400 })
+    }
+    // A password was intended (the field wasn't left blank) but failed the
+    // length check — silently ignoring it used to still respond "User
+    // updated", so a browser-autofilled or otherwise-not-applied value read
+    // as a successful reset even though nothing changed.
+    if (resetPassword && (typeof resetPassword !== 'string' || resetPassword.length < 6)) {
+      return Response.json({ error: 'New password must be at least 6 characters' }, { status: 400 })
     }
 
     await connectDB()

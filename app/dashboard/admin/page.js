@@ -112,8 +112,10 @@ export default function AdminPage() {
       })
       toast.success('Updated')
       fetchAll()
+      return true
     } catch (e) {
       toast.error(e.message || 'Update failed')
+      return false
     }
   }
 
@@ -391,13 +393,24 @@ export default function AdminPage() {
               placeholder="New password (min 6 chars)"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              // Chrome otherwise sometimes offers to fill this with a
+              // *saved* password for this site without it ever reaching
+              // React state — the dialog would then look like it reset the
+              // password when nothing was actually sent to the server.
+              autoComplete="new-password"
             />
             <Button
               className="w-full"
-              onClick={() => {
-                updateUser(resetOpen, { resetPassword: newPassword })
-                setResetOpen(null)
-                setNewPassword('')
+              onClick={async () => {
+                if (newPassword.trim().length < 6) {
+                  toast.error('Type the new password (min 6 characters) first')
+                  return
+                }
+                const ok = await updateUser(resetOpen, { resetPassword: newPassword.trim() })
+                if (ok) {
+                  setResetOpen(null)
+                  setNewPassword('')
+                }
               }}
             >
               Reset Password
