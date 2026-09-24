@@ -142,6 +142,35 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
     update({ nightStays: (form.nightStays || []).filter((s) => s !== stay) })
   }
 
+  // Turns an alternate (same-city, unpriced) hotel into a real, costed night
+  // stay — for trips that genuinely use two hotels in one city.
+  const addAlternateAsStay = (h) => {
+    const m = hotelMasters.find((hm) => hm._id === h.id)
+    const firstRoom = m?.rooms?.[0]
+    const all = form.nightStays || []
+    update({
+      nightStays: [
+        ...all,
+        {
+          location: h.location || m?.city || '',
+          hotelName: h.name || m?.name || '',
+          hotelId: h.id,
+          extraBedCharge: m?.extraBedCharge || 0,
+          cnbPrice: m?.cnbPrice || 0,
+          roomLines: [
+            {
+              ...createDefaultRoomLine(),
+              roomType: firstRoom?.roomType || m?.roomType || h.roomType || '',
+              pricePerNight: firstRoom?.price ?? m?.price ?? h.cost ?? 0,
+            },
+          ],
+          dayNumber: all.length + 1,
+          ...(category ? { category } : {}),
+        },
+      ],
+    })
+  }
+
   const addRoomLine = (stay) => {
     update({
       nightStays: (form.nightStays || []).map((s) =>
@@ -198,13 +227,32 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
         )}
         {stays.length === 0 && <p className="text-sm text-muted-foreground">No night stays added yet.</p>}
         {alternateHotels.length > 0 && (
-          <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-            Shown as alternate option{alternateHotels.length > 1 ? 's' : ''} in the itinerary (same city, no
-            price of its own):{' '}
-            <span className="font-medium text-foreground">
-              {alternateHotels.map((h) => h.name).join(', ')}
-            </span>
-          </p>
+          <div className="space-y-2 rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+            <p>
+              Same-city hotels below are shown as <span className="font-medium text-foreground">alternate
+              options</span> in the itinerary with no price of their own. If the client actually stays there
+              too (e.g. 2 nights in one hotel, then 4 in another in the same city), click{' '}
+              <span className="font-medium text-foreground">Book this hotel too</span> to give it its own nights
+              and price.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {alternateHotels.map((h) => (
+                <span
+                  key={h.id}
+                  className="flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-foreground"
+                >
+                  {h.name}
+                  <button
+                    type="button"
+                    onClick={() => addAlternateAsStay(h)}
+                    className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90"
+                  >
+                    Book this hotel too
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
         )}
         {(() => {
           // First-appearance order of each distinct hotel in this tier's
