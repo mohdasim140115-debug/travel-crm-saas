@@ -469,10 +469,10 @@ function LeadsContent() {
   const CLOSED_STATUSES = ['booked', 'completed']
   const filteredLeads = leads
     .filter((lead) => {
-      if (!isOwner && filterStatus === 'all' && CLOSED_STATUSES.includes(lead.status)) return false
+      if (!isOwner && filterStatus === 'all' && filterFollowUp === 'all' && CLOSED_STATUSES.includes(lead.status)) return false
       // Not Interested / Cancelled leads live in their own section — they stay
       // out of "All Status" so the active leads are easy to work through.
-      if (filterStatus === 'all' && isInactiveLeadStatus(lead.status)) return false
+      if (filterStatus === 'all' && filterFollowUp === 'all' && isInactiveLeadStatus(lead.status)) return false
       if (filterStatus === 'inactive' && !isInactiveLeadStatus(lead.status)) return false
       return true
     })

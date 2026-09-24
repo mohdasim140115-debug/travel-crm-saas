@@ -8,6 +8,15 @@ import { ingestLead } from '@/lib/leadIngest'
 import { rateLimit } from '@/lib/rate-limit'
 import mongoose from 'mongoose'
 
+// India (IST, UTC+5:30) calendar day — same fixed-offset day boundary the
+// Sales dashboard uses, so "today" means the same thing in both places.
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
+function istStartOfDay(d) {
+  const shifted = new Date(new Date(d).getTime() + IST_OFFSET_MS)
+  shifted.setUTCHours(0, 0, 0, 0)
+  return new Date(shifted.getTime() - IST_OFFSET_MS)
+}
+
 export async function GET(request) {
   try {
     const authResult = await authenticate(request)
@@ -61,23 +70,44 @@ export async function GET(request) {
     }
 
     // `?followUp=` — "any" → has an active follow-up scheduled at all (any
-    // date: overdue, today, or upcoming). "today" → due today only.
-    // "pending" → strictly overdue (date already passed). "Today" and
-    // "Pending" are non-overlapping buckets; "any" is their union.
+    // date: overdue, today, or upcoming). "pending" → overdue: the scheduled
+    // date/time has already passed. "today" → still due later today.
+    // "Today" and "Pending" are non-overlapping buckets; "any" is their union.
+    //
+    // This has to bucket EXACTLY like the Sales dashboard tiles
+    // (app/api/analytics/sales/route.js) — one follow-up per lead (the most
+    // recently created pending one), "pending" = before right now, "today" =
+    // from now to the end of the IST day — or the tile says 34 and the list
+    // it links to shows a different set.
     const followUpFilter = searchParams.get('followUp')
     if (followUpFilter === 'any' || followUpFilter === 'today' || followUpFilter === 'pending') {
       const candidateLeadIds = await Lead.distinct('_id', query)
       const fuQuery = { leadId: { $in: candidateLeadIds }, status: 'pending' }
-      const now = new Date()
-      const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      if (followUpFilter === 'today') {
-        const eod = new Date(sod.getTime() + 86400000)
-        fuQuery.scheduledDate = { $gte: sod, $lt: eod }
-      } else if (followUpFilter === 'pending') {
-        fuQuery.scheduledDate = { $lt: sod }
+      if (canOnlyViewOwnLeads(authResult.user.role)) {
+        fuQuery.assignedTo = new mongoose.Types.ObjectId(String(authResult.user.userId))
       }
-      // followUpFilter === 'any': no extra date bound — every active follow-up counts.
-      const matchingLeadIds = await FollowUp.distinct('leadId', fuQuery)
+      const pendingFus = await FollowUp.find(fuQuery).select('leadId scheduledDate createdAt').lean()
+      const latestPerLead = new Map()
+      for (const fu of pendingFus) {
+        const key = String(fu.leadId)
+        const existing = latestPerLead.get(key)
+        if (!existing || new Date(fu.createdAt) > new Date(existing.createdAt)) latestPerLead.set(key, fu)
+      }
+      const now = new Date()
+      const todayEnd = new Date(istStartOfDay(now).getTime() + 86400000)
+      const matchingLeadIds = []
+      for (const fu of latestPerLead.values()) {
+        const d = new Date(fu.scheduledDate)
+        const isPending = d < now
+        const isToday = !isPending && d < todayEnd
+        if (
+          followUpFilter === 'any' ||
+          (followUpFilter === 'pending' && isPending) ||
+          (followUpFilter === 'today' && isToday)
+        ) {
+          matchingLeadIds.push(fu.leadId)
+        }
+      }
       query._id = { $in: matchingLeadIds }
     }
 
@@ -105,7 +135,9 @@ export async function GET(request) {
         status: 'pending',
       })
         .select('leadId scheduledDate')
-        .sort({ scheduledDate: 1 })
+        // Most recently created first — the same follow-up the filters above
+        // and the dashboard tiles treat as "the" pending one for a lead.
+        .sort({ createdAt: -1 })
         .lean()
       const followUpByLead = new Map()
       for (const fu of pendingFollowUps) {
