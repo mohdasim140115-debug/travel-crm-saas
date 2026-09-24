@@ -23,7 +23,7 @@ import { Calendar, Phone, Mail, Eye, AlertCircle, Pencil, Loader2 } from 'lucide
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
-import { leadDisplayName, isPlaceholderEmail } from '@/utils/crm'
+import { leadDisplayName, isPlaceholderEmail, isInactiveLeadStatus } from '@/utils/crm'
 import { TableShell } from '@/components/crm/TableShell'
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon'
 import { CreateBookingDialog } from '@/components/crm/CreateBookingDialog'
@@ -259,7 +259,12 @@ function FollowUpsContent() {
   }
   const visibleFollowUps = [...latestPerLead.values()].filter(
     // A won/handed-off lead's pending follow-up is stale — never list it.
-    (fu) => !(fu.status === 'pending' && RESTING_LEAD_STATUSES.has(fu.leadId?.status))
+    // Not Interested / Cancelled leads need no further action either.
+    (fu) =>
+      !(
+        fu.status === 'pending' &&
+        (RESTING_LEAD_STATUSES.has(fu.leadId?.status) || isInactiveLeadStatus(fu.leadId?.status))
+      )
   )
   const filteredFollowUps = visibleFollowUps.filter((fu) => {
     if (filter === 'today' && (fu.status !== 'pending' || !isToday(fu.scheduledDate))) return false

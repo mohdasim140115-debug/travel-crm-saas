@@ -145,7 +145,10 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
     })
   }, [form.duration])
 
-  const validateStep = () => {
+  // `includeCosting` also runs the Costing checks no matter which step the
+  // agent is on — used when saving, so a package can't be saved from an
+  // earlier step while a night's cost or the extra-bed/CNB rate is missing.
+  const validateStep = (includeCosting = false) => {
     if (step === 1) {
       if (!form.leadId) {
         toast.error('Select a client from the dropdown list')
@@ -185,7 +188,7 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
       }
       setShowPlanErrors(false)
     }
-    if (step === 5) {
+    if (step === 5 || includeCosting) {
       const stays = form.nightStays || []
       for (const stay of stays) {
         const lines = stay.roomLines || []
@@ -196,6 +199,21 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
           toast.error(
             `Fill in Room Type, Price/night, No. of Rooms and Nights for ${stay.hotelName || 'a hotel'} before continuing`
           )
+          return false
+        }
+      }
+
+      // Extra bed / CNB counts were entered but a stay has no rate for them —
+      // those charges would silently count as ₹0 in the package total.
+      const extraBedsN = Number(form.extraBeds) || 0
+      const cnbN = Number(form.cnbCount) || 0
+      for (const stay of stays) {
+        if (extraBedsN > 0 && !(Number(stay.extraBedCharge) > 0)) {
+          toast.error(`Extra bed rate is missing for ${stay.hotelName || 'a hotel'} — fill it in Costing before saving`)
+          return false
+        }
+        if (cnbN > 0 && !(Number(stay.cnbPrice) > 0)) {
+          toast.error(`CNB rate is missing for ${stay.hotelName || 'a hotel'} — fill it in Costing before saving`)
           return false
         }
       }
@@ -234,6 +252,7 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
   }
 
   const persist = async (theme = null) => {
+    if (theme && !validateStep(true)) return null
     setSaving(true)
     try {
       const payload = studioFormToPayload(form)
@@ -282,7 +301,7 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
   }
 
   const handleCommit = () => {
-    if (!validateStep()) return
+    if (!validateStep(true)) return
     setTemplateModalOpen(true)
   }
 
@@ -298,7 +317,14 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
         onCommit={handleCommit}
         saving={saving}
       />
-      <WizardStepper currentStep={step} />
+      <WizardStepper
+        currentStep={step}
+        // Editing a saved itinerary: jump straight to whichever section needs
+        // the change. A brand-new one can still only revisit steps it has
+        // already been through (later steps aren't filled in yet).
+        onStepClick={(id) => setStep(id)}
+        canJumpTo={(id) => Boolean(savedId || itineraryId) || id < step}
+      />
       <div>
         {StepComponent && <StepComponent form={form} update={update} showErrors={showPlanErrors} />}
       </div>

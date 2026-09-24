@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect } from 'react'
+import { Suspense, useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -23,7 +23,7 @@ import { LeadRemarksDialog } from '@/components/crm/LeadRemarksDialog'
 import { CreateBookingDialog } from '@/components/crm/CreateBookingDialog'
 import { useMasters, labelize } from '@/hooks/useMasters'
 import { mutateJson } from '@/lib/mutate'
-import { displayEmail, isPlaceholderEmail } from '@/utils/crm'
+import { displayEmail, isPlaceholderEmail, isInactiveLeadStatus } from '@/utils/crm'
 import { pickerToIso } from '@/lib/datetime'
 
 // A lead's currently-scheduled (pending) follow-up date — blank if none was
@@ -60,6 +60,7 @@ function LeadsContent() {
   const searchParams = useSearchParams()
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
+  const loadedOnce = useRef(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterAssigned, setFilterAssigned] = useState('all')
@@ -188,10 +189,16 @@ function LeadsContent() {
 
   const fetchLeads = async () => {
     try {
-      setLoading(true)
+      // Only the very first load shows the skeleton. Re-fetching after a
+      // follow-up/remark save used to swap the whole table out for a loader,
+      // which threw the scroll position back to the top (client #16 had to be
+      // scrolled to again from #1).
+      if (!loadedOnce.current) setLoading(true)
       const token = localStorage.getItem('token')
       const params = new URLSearchParams({ limit: '200' })
-      if (filterStatus !== 'all') params.set('status', filterStatus)
+      // "inactive" is a client-side grouping (Not Interested + Cancelled) —
+      // fetch every lead and let filteredLeads narrow it down.
+      if (filterStatus !== 'all' && filterStatus !== 'inactive') params.set('status', filterStatus)
       if (filterAssigned !== 'all') params.set('assignedTo', filterAssigned)
       if (filterFollowUp !== 'all') params.set('followUp', filterFollowUp)
       if (searchTerm.trim()) params.set('search', searchTerm.trim())
@@ -209,6 +216,7 @@ function LeadsContent() {
     } catch (error) {
       console.error('Error fetching leads:', error)
     } finally {
+      loadedOnce.current = true
       setLoading(false)
     }
   }
@@ -462,6 +470,10 @@ function LeadsContent() {
   const filteredLeads = leads
     .filter((lead) => {
       if (!isOwner && filterStatus === 'all' && CLOSED_STATUSES.includes(lead.status)) return false
+      // Not Interested / Cancelled leads live in their own section — they stay
+      // out of "All Status" so the active leads are easy to work through.
+      if (filterStatus === 'all' && isInactiveLeadStatus(lead.status)) return false
+      if (filterStatus === 'inactive' && !isInactiveLeadStatus(lead.status)) return false
       return true
     })
     .sort((a, b) => {
@@ -513,7 +525,16 @@ function LeadsContent() {
                     looks like a bug. */}
                 All Status (
                 {Object.entries(statusCounts).reduce(
-                  (sum, [key, n]) => (!isOwner && CLOSED_STATUSES.includes(key) ? sum : sum + n),
+                  (sum, [key, n]) =>
+                    isInactiveLeadStatus(key) || (!isOwner && CLOSED_STATUSES.includes(key)) ? sum : sum + n,
+                  0
+                )}
+                )
+              </SelectItem>
+              <SelectItem value="inactive">
+                Not Interested &amp; Cancelled (
+                {Object.entries(statusCounts).reduce(
+                  (sum, [key, n]) => (isInactiveLeadStatus(key) ? sum + n : sum),
                   0
                 )}
                 )

@@ -272,6 +272,14 @@ export async function updateItinerary(id, authUser, body) {
   // numberOfTravelers is whatever it was at creation forever, and every PDF/
   // preview that prefers it over a fresh adults+children sum (see
   // lib/pdf/itineraryPdf.js) shows a stale traveler count after any edit.
+  // Same reason: the pre-save hook that mirrors totalPrice → totalCost (and
+  // pricePerPerson → perPersonCost) never runs on this update path, so after
+  // editing a package into a "second option" the old package's totalCost
+  // lingered — anything reading `totalPrice || totalCost` could then show the
+  // first package's price instead of the latest saved one.
+  if (updates.totalPrice != null) updates.totalCost = updates.totalPrice
+  if (updates.pricePerPerson != null) updates.perPersonCost = updates.pricePerPerson
+
   if (updates.numberOfAdults !== undefined || updates.numberOfChildren !== undefined) {
     const current = await Itinerary.findOne(filter).select('numberOfAdults numberOfChildren').lean()
     const adults = updates.numberOfAdults !== undefined ? Number(updates.numberOfAdults) || 0 : (current?.numberOfAdults ?? 1)

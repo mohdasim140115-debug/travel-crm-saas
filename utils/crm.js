@@ -34,6 +34,13 @@ export function formatInr(amount, currency = 'INR') {
   }
 }
 
+/** "Not Interested" / "Cancelled" leads — dead ends that need no further
+ * action. Statuses are configurable per agency (Settings → Lead Statuses), so
+ * this matches on the key/label rather than one fixed spelling. */
+export function isInactiveLeadStatus(keyOrLabel) {
+  return /not[\s_-]*interested|cancel/i.test(String(keyOrLabel || ''))
+}
+
 export const LEAD_STATUSES = [
   'new',
   'contacted',
