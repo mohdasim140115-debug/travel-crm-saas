@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Building2 } from 'lucide-react'
+import { Plus, Building2, Mail, Phone, MapPin, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { mutateJson } from '@/lib/mutate'
 import { Button } from '@/components/ui/button'
@@ -82,24 +82,62 @@ export default function SuppliersPage() {
       </div>
 
       <Card className="border-border/60 shadow-sm">
-        <CardHeader>
+        <CardHeader className="px-3 sm:px-6">
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
             Hotel directory
           </CardTitle>
           <CardDescription>{suppliers.length} hotel supplier(s)</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-3 sm:px-6">
           <div className="space-y-3 md:hidden">
+            {loading && <p className="py-4 text-center text-sm text-muted-foreground">Loading…</p>}
+            {!loading && suppliers.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">No hotel suppliers yet.</p>
+            )}
             {suppliers.map((s) => (
-              <Link key={s._id} href={`/dashboard/suppliers/${s._id}`} className="block rounded-xl border p-4">
-                <p className="font-semibold">{s.name}</p>
-                <Badge variant="secondary" className="mt-1 capitalize">{s.type}</Badge>
-                <p className="mt-2 text-sm">{s.email}</p>
-                <p className="text-sm text-muted-foreground">{s.phone || s.address?.city || '—'}</p>
-                {!!s.balanceDue && (
-                  <p className="mt-1 text-sm font-medium text-destructive">Due: {s.balanceDue}</p>
-                )}
+              <Link
+                key={s._id}
+                href={`/dashboard/suppliers/${s._id}`}
+                className="block overflow-hidden rounded-xl border bg-card shadow-sm active:bg-muted/40"
+              >
+                <div className="flex items-center justify-between gap-3 border-b bg-primary/5 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold">{s.name}</p>
+                    <Badge variant="secondary" className="mt-1 capitalize">{s.type}</Badge>
+                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+                </div>
+                <dl className="space-y-2 px-3 py-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <dt className="flex w-16 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <Mail className="h-3.5 w-3.5" /> Email
+                    </dt>
+                    <dd className="min-w-0 truncate">{s.email || '—'}</dd>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <dt className="flex w-16 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5" /> Phone
+                    </dt>
+                    <dd className="min-w-0 truncate">{s.phone || '—'}</dd>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <dt className="flex w-16 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5" /> City
+                    </dt>
+                    <dd className="min-w-0 truncate">{s.address?.city || '—'}</dd>
+                  </div>
+                </dl>
+                <div className="flex items-center justify-between border-t px-3 py-2.5">
+                  <span className="text-xs text-muted-foreground">Balance due</span>
+                  {s.balanceDue ? (
+                    <span className="rounded-full bg-destructive/15 px-3 py-0.5 text-sm font-semibold text-destructive">
+                      ₹{Number(s.balanceDue).toLocaleString('en-IN')}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Nil</span>
+                  )}
+                </div>
               </Link>
             ))}
           </div>

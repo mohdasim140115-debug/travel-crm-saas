@@ -27,7 +27,6 @@ function formatINR(n) {
 export default function OwnerDashboardPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-
   useEffect(() => {
     async function load() {
       const token = localStorage.getItem('token')
@@ -81,12 +80,12 @@ export default function OwnerDashboardPage() {
           ].map((s) => {
             const Icon = s.icon
             return (
-              <Card key={s.label} className="gap-1 py-3 sm:gap-6 sm:py-6">
-                <CardHeader className="flex flex-row items-center justify-between px-3 pb-0 sm:px-6 sm:pb-2">
+              <Card key={s.label} className="gap-1 py-3 sm:gap-3 sm:py-4">
+                <CardHeader className="flex flex-row items-center justify-between px-3 pb-0 sm:px-5 sm:pb-0">
                   <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">{s.label}</CardTitle>
                   <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </CardHeader>
-                <CardContent className="px-3 sm:px-6">
+                <CardContent className="px-3 sm:px-5">
                   <div className="text-xl font-bold text-accent-secondary sm:text-2xl">{s.value ?? 0}</div>
                 </CardContent>
               </Card>
@@ -99,12 +98,12 @@ export default function OwnerDashboardPage() {
               .sort((a, b) => b.bookingsToday - a.bookingsToday)
               .slice(0, 3)
             return (
-              <Card className="gap-1 py-3 sm:gap-6 sm:py-6">
-                <CardHeader className="flex flex-row items-center justify-between px-3 pb-0 sm:px-6 sm:pb-2">
+              <Card className="gap-1 py-3 sm:gap-3 sm:py-4">
+                <CardHeader className="flex flex-row items-center justify-between px-3 pb-0 sm:px-5 sm:pb-0">
                   <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">Top Performer</CardTitle>
                   <Trophy className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </CardHeader>
-                <CardContent className="px-3 sm:px-6">
+                <CardContent className="px-3 sm:px-5">
                   {topToday.length ? (
                     <ul className="space-y-1">
                       {topToday.map((m, i) => (
@@ -155,12 +154,12 @@ export default function OwnerDashboardPage() {
             const Icon = s.icon
             return (
               <Link key={s.label} href={s.href}>
-                <Card className="gap-1 py-3 transition-shadow hover:shadow-md sm:gap-6 sm:py-6">
-                  <CardHeader className="flex flex-row items-center justify-between px-3 pb-0 sm:px-6 sm:pb-2">
+                <Card className="gap-1 py-3 transition-shadow hover:shadow-md sm:gap-3 sm:py-4">
+                  <CardHeader className="flex flex-row items-center justify-between px-3 pb-0 sm:px-5 sm:pb-0">
                     <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">{s.label}</CardTitle>
                     <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                   </CardHeader>
-                  <CardContent className="px-3 sm:px-6">
+                  <CardContent className="px-3 sm:px-5">
                     <div className="text-xl font-bold text-accent-secondary sm:text-2xl">{s.value ?? 0}</div>
                   </CardContent>
                 </Card>
@@ -173,28 +172,28 @@ export default function OwnerDashboardPage() {
       <div>
         <h2 className="mb-3 text-lg font-semibold">This Month</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Card className="gap-1 py-3 sm:gap-6 sm:py-6">
-            <CardHeader className="px-3 pb-0 sm:px-6 sm:pb-2">
+          <Card className="gap-1 py-3 sm:gap-3 sm:py-4">
+            <CardHeader className="px-3 pb-0 sm:px-5 sm:pb-0">
               <CardTitle className="text-xs text-muted-foreground sm:text-sm">Leads</CardTitle>
             </CardHeader>
-            <CardContent className="px-3 sm:px-6">
-              <p className="text-xl font-bold text-accent-secondary sm:text-3xl">{month.leads ?? 0}</p>
+            <CardContent className="px-3 sm:px-5">
+              <p className="text-xl font-bold text-accent-secondary sm:text-2xl">{month.leads ?? 0}</p>
             </CardContent>
           </Card>
-          <Card className="gap-1 py-3 sm:gap-6 sm:py-6">
-            <CardHeader className="px-3 pb-0 sm:px-6 sm:pb-2">
+          <Card className="gap-1 py-3 sm:gap-3 sm:py-4">
+            <CardHeader className="px-3 pb-0 sm:px-5 sm:pb-0">
               <CardTitle className="text-xs text-muted-foreground sm:text-sm">Bookings</CardTitle>
             </CardHeader>
-            <CardContent className="px-3 sm:px-6">
-              <p className="text-xl font-bold text-accent-secondary sm:text-3xl">{month.bookings ?? 0}</p>
+            <CardContent className="px-3 sm:px-5">
+              <p className="text-xl font-bold text-accent-secondary sm:text-2xl">{month.bookings ?? 0}</p>
             </CardContent>
           </Card>
-          <Card className="gap-1 py-3 sm:gap-6 sm:py-6">
-            <CardHeader className="px-3 pb-0 sm:px-6 sm:pb-2">
+          <Card className="gap-1 py-3 sm:gap-3 sm:py-4">
+            <CardHeader className="px-3 pb-0 sm:px-5 sm:pb-0">
               <CardTitle className="text-xs text-muted-foreground sm:text-sm">Revenue</CardTitle>
             </CardHeader>
-            <CardContent className="px-3 sm:px-6">
-              <p className="text-xl font-bold text-accent-secondary sm:text-3xl">{formatINR(month.revenue)}</p>
+            <CardContent className="px-3 sm:px-5">
+              <p className="text-xl font-bold text-accent-secondary sm:text-2xl">{formatINR(month.revenue)}</p>
             </CardContent>
           </Card>
 
@@ -204,12 +203,12 @@ export default function OwnerDashboardPage() {
               .sort((a, b) => b.bookingsMonth - a.bookingsMonth)
               .slice(0, 3)
             return (
-              <Card className="gap-1 py-3 sm:gap-6 sm:py-6">
-                <CardHeader className="flex flex-row items-center justify-between px-3 pb-0 sm:px-6 sm:pb-2">
+              <Card className="gap-1 py-3 sm:gap-3 sm:py-4">
+                <CardHeader className="flex flex-row items-center justify-between px-3 pb-0 sm:px-5 sm:pb-0">
                   <CardTitle className="text-xs text-muted-foreground sm:text-sm">Top Performer</CardTitle>
                   <Trophy className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </CardHeader>
-                <CardContent className="px-3 sm:px-6">
+                <CardContent className="px-3 sm:px-5">
                   {topMonth.length ? (
                     <ul className="space-y-1">
                       {topMonth.map((m, i) => (

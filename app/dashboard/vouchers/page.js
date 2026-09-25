@@ -484,10 +484,10 @@ function VouchersPageContent() {
       )}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="px-3 sm:px-6">
           <CardTitle>All Vouchers</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 sm:px-6">
           {loading ? (
             <p className="text-muted-foreground">Loading…</p>
           ) : voucherGroups.length === 0 ? (
@@ -496,44 +496,57 @@ function VouchersPageContent() {
             <div className="space-y-4">
               {voucherGroups.map((g) => (
                 <div key={g.bookingId} className="overflow-hidden rounded-xl border border-accent-secondary/40">
-                  <div className="bg-muted/30 px-4 py-3">
-                    <p className="font-semibold">{g.clientName}</p>
-                    <p className="text-xs text-muted-foreground">Last updated {new Date(g.latestDate).toLocaleDateString()}</p>
+                  <div className="flex items-start justify-between gap-3 bg-muted/30 px-3 py-3 sm:px-4">
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold">{g.clientName}</p>
+                      <p className="text-xs text-muted-foreground">Last updated {new Date(g.latestDate).toLocaleDateString()}</p>
+                    </div>
+                    <Badge variant="outline" className="shrink-0">
+                      {VOUCHER_TYPES.filter((t) => g.vouchers[t.value]).length} of {VOUCHER_TYPES.length} generated
+                    </Badge>
                   </div>
                   <div className="divide-y">
                     {VOUCHER_TYPES.map((t) => {
                       const v = g.vouchers[t.value]
                       const Icon = t.icon
                       return (
-                        <div key={t.value} className="flex flex-col gap-2.5 p-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            <span className={v ? 'font-medium' : 'text-muted-foreground'}>{t.label}</span>
+                        <div key={t.value} className="flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                          <div className="flex items-center justify-between gap-2.5 sm:justify-start">
+                            <div className="flex items-center gap-2.5">
+                              <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                              <span className={v ? 'font-medium' : 'text-muted-foreground'}>{t.label}</span>
+                            </div>
+                            {v ? (
+                              <Badge variant={v.status === 'generated' ? 'default' : 'outline'} className="sm:hidden">{v.status}</Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground sm:hidden">Not generated</span>
+                            )}
                           </div>
                           {v ? (
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-2">
                               {['hotel', 'cab'].includes(v.type) && (
-                                <Button size="sm" variant="outline" onClick={() => openEditVoucher(v)}>
+                                <Button size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={() => openEditVoucher(v)}>
                                   Edit
                                 </Button>
                               )}
-                              <Button size="sm" variant="outline" onClick={() => downloadVoucherPdf(v._id)}>
+                              <Button size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={() => downloadVoucherPdf(v._id)}>
                                 Download PDF
                               </Button>
-                              <Badge variant={v.status === 'generated' ? 'default' : 'outline'}>{v.status}</Badge>
+                              <Badge variant={v.status === 'generated' ? 'default' : 'outline'} className="hidden sm:inline-flex">{v.status}</Badge>
                             </div>
                           ) : (
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="text-muted-foreground"
+                              variant="outline"
+                              className="w-full border-dashed text-muted-foreground sm:w-auto"
                               onClick={() => {
                                 setEditSeed(null)
                                 setForm({ bookingId: g.bookingId, type: t.value, details: '' })
                                 setOpen(true)
                               }}
                             >
-                              Not generated
+                              <span className="sm:hidden">+ Generate {t.label}</span>
+                              <span className="hidden sm:inline">Not generated</span>
                             </Button>
                           )}
                         </div>

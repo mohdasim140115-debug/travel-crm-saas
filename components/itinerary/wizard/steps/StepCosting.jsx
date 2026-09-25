@@ -215,7 +215,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
 
   return (
     <Card className="overflow-hidden border-border/60 shadow-sm">
-      <CardHeader className="flex flex-col gap-3 space-y-0 border-b border-border/60 bg-linear-to-r from-primary/10 to-transparent sm:flex-row sm:items-center sm:justify-between">
+      <CardHeader className="flex flex-col gap-3 space-y-0 px-3 sm:px-6 border-b border-border/60 bg-linear-to-r from-primary/10 to-transparent sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
           <span className="h-6 w-1.5 shrink-0 rounded-full bg-primary" />
           <div>
@@ -227,7 +227,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 px-3 sm:px-6">
         {hotelsForTier.length === 0 && (
           <p className="text-sm text-amber-600">
             No hotels selected yet. Go back to the Hotels step and select {label ? `${label} ` : ''}hotels first.
@@ -310,7 +310,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                   <span className={`h-3 w-1 rounded-full ${accent ? accent.label.replace('text-', 'bg-') : 'bg-primary'}`} />
                   Property
                 </p>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 [&>*]:min-w-0 [&_[data-slot=select-trigger]]:w-full">
                   <div className="space-y-1">
                     <Label className="text-xs">Hotel</Label>
                     <Select
@@ -410,7 +410,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                       Client re-checks in to {stay.hotelName || 'this hotel'} later in the trip
                     </label>
                     {stay.hasReCheckIn && (
-                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2 [&>*]:min-w-0 [&_[data-slot=select-trigger]]:w-full">
                         <div className="space-y-1">
                           <Label className="text-xs">Return check-in</Label>
                           <PlanDateSelect
@@ -463,8 +463,8 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                         <X className="h-3.5 w-3.5" />
                       </button>
                     )}
-                    <div className="grid gap-2 sm:grid-cols-5">
-                      <div className="space-y-1 sm:col-span-2">
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5 [&>*]:min-w-0 [&_[data-slot=select-trigger]]:w-full">
+                      <div className="col-span-2 space-y-1">
                         <Label className="text-xs">Room Type *</Label>
                         <Select
                           value={line.roomType || ''}
@@ -555,7 +555,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                     <span className="h-3 w-1 rounded-full bg-primary" />
                     Extra bed / CNB charges
                   </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {extraBeds > 0 && (
                       <div className="space-y-1">
                         <Label className="text-xs">Extra bed rate (₹/night × {extraBeds})</Label>
@@ -1032,15 +1032,15 @@ export default function StepCosting({ form, update }) {
   return (
     <div className="space-y-6">
       <Card className="overflow-hidden border-border/60 shadow-sm">
-        <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/10 to-transparent">
+        <CardHeader className="px-3 sm:px-6 border-b border-border/60 bg-linear-to-r from-primary/10 to-transparent">
           <div className="flex items-center gap-2.5">
             <span className="h-6 w-1.5 rounded-full bg-primary" />
             <CardTitle>Package costing</CardTitle>
           </div>
           <CardDescription>Traveler counts and vehicle — pricing is auto-calculated from selected hotels and vehicle</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3">
+        <CardContent className="space-y-6 px-3 sm:px-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
             <Field label="Adults" type="number" value={form.numberOfAdults} onChange={(v) => setField('numberOfAdults', v)} />
             <Field label="Children" type="number" value={form.numberOfChildren} onChange={(v) => setField('numberOfChildren', v)} />
             <div className="space-y-2">
@@ -1049,7 +1049,7 @@ export default function StepCosting({ form, update }) {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
             <Field label="Extra Bed" type="number" value={form.extraBeds} onChange={(v) => setField('extraBeds', v)} />
             <Field label="CNB" type="number" value={form.cnbCount} onChange={(v) => setField('cnbCount', v)} />
           </div>
@@ -1332,13 +1332,13 @@ export default function StepCosting({ form, update }) {
       )}
 
       <Card className="overflow-hidden border-border/60 shadow-sm">
-        <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/10 to-transparent">
+        <CardHeader className="px-3 sm:px-6 border-b border-border/60 bg-linear-to-r from-primary/10 to-transparent">
           <div className="flex items-center gap-2.5">
             <span className="h-6 w-1.5 rounded-full bg-primary" />
             <CardTitle>Extra charges</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 px-3 sm:px-6">
           {form.budgetTiers ? (
             <div className="space-y-5">
               {BUDGET_TIERS.map((tier) => {

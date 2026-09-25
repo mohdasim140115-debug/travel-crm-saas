@@ -56,12 +56,26 @@ export default function WizardFooter({
 
       {/* Mobile — a standalone fixed toolbar (not nested inside a Card), so no
           ancestor's overflow/stacking context can clip it or steal taps. */}
-      <div className="safe-bottom fixed inset-x-0 bottom-0 z-50 flex flex-row items-center gap-3 border-t border-border/60 bg-card px-4 py-2 shadow-[0_-4px_16px_rgba(0,0,0,0.3)] sm:hidden">
-        <Button type="button" variant="outline" onClick={onBack} disabled={step <= 1} className="h-8 flex-1 gap-1">
-          <ChevronLeft className="h-4 w-4" />
-          Back
-        </Button>
-        <ContinueButton className="h-8 flex-1" />
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card px-4 after:absolute after:inset-x-0 after:top-full after:h-24 after:bg-card after:content-[''] pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-4px_16px_rgba(0,0,0,0.3)] sm:hidden">
+        <div className="mb-2 flex items-center gap-3">
+          <Progress value={progress} className="h-1.5 flex-1 bg-accent-secondary/15 [&>div]:bg-accent-secondary" />
+          <span className="shrink-0 text-[11px] font-medium text-accent-secondary">
+            Step {step} of {totalSteps}
+          </span>
+        </div>
+        <div className="flex flex-row items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onBack}
+            disabled={step <= 1}
+            className="h-12 flex-1 gap-1 rounded-xl border-primary/40 bg-primary/10 text-sm font-semibold text-foreground disabled:opacity-40"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <ContinueButton className="h-12 flex-[1.6] rounded-xl text-sm font-semibold" />
+        </div>
       </div>
     </>
   )

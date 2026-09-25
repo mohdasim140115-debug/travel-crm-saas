@@ -308,7 +308,7 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
   const StepComponent = STEP_COMPONENTS[step]
 
   return (
-    <div className="space-y-6 pb-24 sm:pb-0">
+    <div className="space-y-6 pb-40 sm:pb-0">
       <WizardHeader
         tripName={form.customerName || form.tripName || 'Unnamed trip'}
         step={step}
@@ -325,7 +325,7 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
         onStepClick={(id) => setStep(id)}
         canJumpTo={(id) => Boolean(savedId || itineraryId) || id < step}
       />
-      <div>
+      <div className="-mx-3 sm:mx-0 max-sm:[&_[data-slot=card-content]]:px-3 max-sm:[&_[data-slot=card-header]]:px-3">
         {StepComponent && <StepComponent form={form} update={update} showErrors={showPlanErrors} />}
       </div>
       <WizardFooter
@@ -349,7 +349,7 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
         size="icon"
         onClick={jumpScroll}
         title={atBottom ? 'Scroll to top' : 'Scroll to bottom'}
-        className="fixed bottom-24 right-4 z-40 h-11 w-11 rounded-full shadow-lg sm:bottom-6 sm:right-6"
+        className="fixed bottom-40 right-4 z-40 h-11 w-11 rounded-full shadow-lg sm:bottom-6 sm:right-6"
       >
         {atBottom ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
       </Button>

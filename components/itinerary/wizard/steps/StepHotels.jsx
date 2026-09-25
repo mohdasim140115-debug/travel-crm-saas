@@ -186,11 +186,11 @@ export default function StepHotels({ form, update }) {
   return (
     <div className="space-y-6">
       <Card className="border-border/60 shadow-sm">
-        <CardHeader>
+        <CardHeader className="px-3 sm:px-6">
           <CardTitle>Select hotels</CardTitle>
           <CardDescription>Choose properties from your master hotel repository</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 sm:px-6">
           <div className="flex items-center justify-between rounded-lg border border-dashed p-3">
             <div>
               <Label className="text-sm font-medium">
@@ -226,11 +226,11 @@ export default function StepHotels({ form, update }) {
           const label = budgetTierLabel(tier.key, form.budgetTierLabels)
           return (
             <Card key={tier.key} className="border-border/60 shadow-sm">
-              <CardHeader>
+              <CardHeader className="px-3 sm:px-6">
                 <CardTitle>{label} hotels</CardTitle>
                 <CardDescription>Hotels picked here appear under {label} in Costing and the PDF.</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 sm:px-6">
                 <HotelPicker category={tier.key} form={form} update={update} />
               </CardContent>
             </Card>
@@ -238,7 +238,7 @@ export default function StepHotels({ form, update }) {
         })
       ) : (
         <Card className="border-border/60 shadow-sm">
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 px-3 sm:px-6">
             <HotelPicker category={null} form={form} update={update} />
           </CardContent>
         </Card>

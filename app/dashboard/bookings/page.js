@@ -314,14 +314,14 @@ function BookingsPageContent() {
       )}
 
       <Card className="border-border/60 shadow-sm">
-        <CardHeader>
+        <CardHeader className="px-3 sm:px-6">
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             All bookings
           </CardTitle>
           <CardDescription>{displayedBookings.length} booking(s)</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-3 sm:px-6">
           <div className="space-y-3 md:hidden">
             {loading ? (
               <p className="py-4 text-center text-sm text-muted-foreground">Loading…</p>
@@ -331,60 +331,85 @@ function BookingsPageContent() {
               </p>
             ) : (
               displayedBookings.map((b) => (
-                <div key={b._id} className="rounded-xl border p-4">
-                  <p className="font-semibold">
-                    {leadHref(b) ? (
-                      <Link href={leadHref(b)} className="text-primary hover:underline">
-                        {leadDisplayName(b.leadId)}
-                      </Link>
-                    ) : (
-                      '—'
-                    )}
-                  </p>
-                  <p className="mt-1 text-sm">{b.itineraryId?.tripName || b.itineraryId?.title || '—'}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Booked by: {b.assignedTo?.name || '—'}
-                  </p>
-                  <div className="mt-2">
-                    <span className="font-medium">{formatInr(b.totalAmount, b.currency)}</span>
+                <div key={b._id} className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                  <div className="flex items-start justify-between gap-3 border-b bg-primary/5 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold">
+                        {leadHref(b) ? (
+                          <Link href={leadHref(b)} className="text-primary hover:underline">
+                            {leadDisplayName(b.leadId)}
+                          </Link>
+                        ) : (
+                          '—'
+                        )}
+                      </p>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {b.itineraryId?.tripName || b.itineraryId?.title || '—'}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Amount</p>
+                      <p className="text-base font-bold">{formatInr(b.totalAmount, b.currency)}</p>
+                    </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <dl className="space-y-2 px-3 py-3 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-xs text-muted-foreground">Booked by</dt>
+                      <dd className="font-medium">{b.assignedTo?.name || '—'}</dd>
+                    </div>
                     {role === 'accounts' ? (
                       <>
-                        <span className="text-xs text-muted-foreground">Advance invoice:</span>
-                        <AdvanceInvoiceBadge booking={b} />
-                        <span className="text-xs text-muted-foreground">Hotel advance:</span>
-                        <HotelAdvanceBadge booking={b} />
-                        <span className="text-xs text-muted-foreground">Activity payment:</span>
-                        <ActivityPaymentBadge booking={b} />
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-xs text-muted-foreground">Advance invoice</dt>
+                          <dd><AdvanceInvoiceBadge booking={b} /></dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-xs text-muted-foreground">Hotel advance</dt>
+                          <dd><HotelAdvanceBadge booking={b} /></dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-xs text-muted-foreground">Activity payment</dt>
+                          <dd><ActivityPaymentBadge booking={b} /></dd>
+                        </div>
                       </>
                     ) : (
                       <>
-                        <span className="text-xs text-muted-foreground">Hotel:</span>
-                        <StatusBadge status={b.hotelStatus} href={`/dashboard/bookings/${b._id}`} />
-                        <span className="text-xs text-muted-foreground">Transport:</span>
-                        <StatusBadge status={b.vehicleStatus} href={`/dashboard/bookings/${b._id}`} />
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-xs text-muted-foreground">Hotel</dt>
+                          <dd><StatusBadge status={b.hotelStatus} href={`/dashboard/bookings/${b._id}`} /></dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-xs text-muted-foreground">Transport</dt>
+                          <dd><StatusBadge status={b.vehicleStatus} href={`/dashboard/bookings/${b._id}`} /></dd>
+                        </div>
                         {b.hasActivities && (
-                          <>
-                            <span className="text-xs text-muted-foreground">Activity:</span>
-                            <StatusBadge status={b.activityStatus} href={`/dashboard/bookings/${b._id}`} />
-                          </>
-                        )}
-                        {b.status === 'cancelled' ? (
-                          <Badge className="bg-destructive hover:bg-destructive">Cancelled</Badge>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setCancelTarget(b)}
-                          >
-                            Cancel
-                          </Button>
+                          <div className="flex items-center justify-between gap-3">
+                            <dt className="text-xs text-muted-foreground">Activity</dt>
+                            <dd><StatusBadge status={b.activityStatus} href={`/dashboard/bookings/${b._id}`} /></dd>
+                          </div>
                         )}
                       </>
                     )}
-                  </div>
+                  </dl>
+                  {role !== 'accounts' && (
+                    <div className="flex gap-2 border-t px-3 py-2.5">
+                      <Button size="sm" variant="outline" className="flex-1" asChild>
+                        <Link href={`/dashboard/bookings/${b._id}`}>Open booking</Link>
+                      </Button>
+                      {b.status === 'cancelled' ? (
+                        <Badge className="self-center bg-destructive hover:bg-destructive">Cancelled</Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setCancelTarget(b)}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))
             )}

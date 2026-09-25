@@ -118,8 +118,8 @@ export default function StepDetails({ form, update }) {
         )}
       </CardHeader>
       <CardContent className="grid gap-5 md:grid-cols-2">
-        <div className="flex flex-row items-center gap-2 sm:gap-3">
-          <Label className="flex w-20 shrink-0 items-center gap-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-accent-secondary sm:w-36 sm:gap-1.5 sm:text-xs">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+          <Label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent-secondary sm:w-36 sm:shrink-0">
             <User className="h-3.5 w-3.5" /> Client name *
           </Label>
           <div className="min-w-0 flex-1">
@@ -172,12 +172,12 @@ export default function StepDetails({ form, update }) {
             </Popover>
           </div>
         </div>
-        <div className="flex flex-row items-center gap-2 sm:gap-3">
-          <Label className="flex w-20 shrink-0 items-center gap-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-accent-secondary sm:w-36 sm:gap-1.5 sm:text-xs">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+          <Label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent-secondary sm:w-36 sm:shrink-0">
             <MapPinned className="h-3.5 w-3.5" /> Destination *
           </Label>
           <Select value={form.destination} onValueChange={(v) => update({ destination: v })}>
-            <SelectTrigger className="min-w-0 w-full flex-1 rounded-xl">
+            <SelectTrigger className="w-full min-w-0 rounded-xl sm:flex-1">
               <SelectValue placeholder="Select destination" />
             </SelectTrigger>
             <SelectContent>
@@ -189,8 +189,8 @@ export default function StepDetails({ form, update }) {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-col gap-2 sm:gap-3 md:col-span-2 md:flex-row md:items-start">
-          <Label className="flex w-20 shrink-0 items-center gap-1 pt-2 text-[10px] font-bold uppercase leading-tight tracking-wide text-accent-secondary sm:w-36 sm:gap-1.5 sm:text-xs">
+        <div className="flex flex-col gap-1.5 sm:gap-3 md:col-span-2 md:flex-row md:items-start">
+          <Label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent-secondary sm:w-36 sm:shrink-0 md:pt-2">
             <Award className="h-3.5 w-3.5" /> Package category *
           </Label>
           <div className="min-w-0 flex-1">
@@ -203,7 +203,7 @@ export default function StepDetails({ form, update }) {
                     type="button"
                     onClick={() => toggleCategory(c.label)}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold transition-all',
+                      'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-all',
                       isSelected
                         ? 'border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/30'
                         : 'border-border/70 bg-muted/40 text-muted-foreground hover:border-primary/50 hover:bg-primary/10 hover:text-primary'
@@ -229,8 +229,8 @@ export default function StepDetails({ form, update }) {
           </div>
         </div>
 
-        <div className="flex flex-row items-center gap-2 sm:gap-3">
-          <Label className="flex w-20 shrink-0 items-center gap-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-accent-secondary sm:w-36 sm:gap-1.5 sm:text-xs">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+          <Label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent-secondary sm:w-36 sm:shrink-0">
             <CalendarRange className="h-3.5 w-3.5" /> Duration *
           </Label>
           <div className="min-w-0 flex-1">

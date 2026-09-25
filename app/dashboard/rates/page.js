@@ -55,7 +55,7 @@ export default function RatesPage() {
         </Button>
         <span className="self-center text-xs text-muted-foreground">You can add new ones; only the Owner can edit or delete.</span>
       </div>
-      <Card className="p-5">{tab === 'hotels' ? <HotelManager readOnly /> : <VehicleManager readOnly />}</Card>
+      <Card className="p-3 max-sm:-mx-2 sm:p-5">{tab === 'hotels' ? <HotelManager readOnly /> : <VehicleManager readOnly />}</Card>
     </div>
   )
 }

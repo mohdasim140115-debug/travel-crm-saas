@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Trash2, Edit2, Eye, Filter, ArrowUpDown, MessageSquare, Phone, Mail, Loader2, Users, Bell, Calendar as CalendarIcon } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, Eye, Filter, ArrowUpDown, MessageSquare, Phone, Mail, Loader2, Users, Bell, Calendar as CalendarIcon, X } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -496,8 +496,8 @@ function LeadsContent() {
 
       {/* Filters */}
       <Card className="p-3 sm:p-4">
-        <div className="flex flex-nowrap items-center gap-2">
-          <div className="relative min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full min-w-0 sm:w-auto sm:flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search..."
@@ -509,11 +509,11 @@ function LeadsContent() {
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger
-              className="w-[44px] shrink-0 justify-center border border-border px-0 sm:w-[180px] sm:justify-between sm:px-3"
+              className="w-[calc(50%-0.25rem)] shrink-0 justify-between gap-2 border border-border px-3 sm:w-[180px]"
               aria-label="Filter by status"
             >
               <Filter className="h-4 w-4 shrink-0 text-muted-foreground sm:hidden" />
-              <span className="hidden sm:inline">
+              <span className="min-w-0 flex-1 truncate text-left">
                 <SelectValue />
               </span>
             </SelectTrigger>
@@ -550,11 +550,11 @@ function LeadsContent() {
           {canAssign && (
             <Select value={filterAssigned} onValueChange={setFilterAssigned}>
               <SelectTrigger
-                className="w-[44px] shrink-0 justify-center border border-border px-0 sm:w-[180px] sm:justify-between sm:px-3"
+                className="w-[calc(50%-0.25rem)] shrink-0 justify-between gap-2 border border-border px-3 sm:w-[180px]"
                 aria-label="Filter by employee"
               >
                 <Users className="h-4 w-4 shrink-0 text-muted-foreground sm:hidden" />
-                <span className="hidden sm:inline">
+                <span className="min-w-0 flex-1 truncate text-left">
                   <SelectValue />
                 </span>
               </SelectTrigger>
@@ -572,11 +572,11 @@ function LeadsContent() {
 
           <Select value={filterFollowUp} onValueChange={setFilterFollowUp}>
             <SelectTrigger
-              className="w-[44px] shrink-0 justify-center border border-border px-0 sm:w-[180px] sm:justify-between sm:px-3"
+              className="w-[calc(50%-0.25rem)] shrink-0 justify-between gap-2 border border-border px-3 sm:w-[180px]"
               aria-label="Filter by follow-up"
             >
               <Bell className="h-4 w-4 shrink-0 text-muted-foreground sm:hidden" />
-              <span className="hidden sm:inline">
+              <span className="min-w-0 flex-1 truncate text-left">
                 <SelectValue />
               </span>
             </SelectTrigger>
@@ -590,11 +590,11 @@ function LeadsContent() {
 
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger
-              className="w-[44px] shrink-0 justify-center border border-border px-0 sm:w-[180px] sm:justify-between sm:px-3"
+              className="w-[calc(50%-0.25rem)] shrink-0 justify-between gap-2 border border-border px-3 sm:w-[180px]"
               aria-label="Sort"
             >
               <ArrowUpDown className="h-4 w-4 shrink-0 text-muted-foreground sm:hidden" />
-              <span className="hidden sm:inline">
+              <span className="min-w-0 flex-1 truncate text-left">
                 <SelectValue />
               </span>
             </SelectTrigger>
@@ -631,14 +631,33 @@ function LeadsContent() {
                     >
                       {lead.firstName} {lead.lastName}
                     </button>
-                    <p className="truncate text-sm text-muted-foreground">{displayEmail(lead.email) || '—'}</p>
-                    <p className="mt-1 text-sm">{lead.phone || '—'}</p>
                   </div>
-                  <Badge variant="outline" className="shrink-0 capitalize">{lead.status}</Badge>
+                  <Badge variant="outline" className="shrink-0 capitalize">
+                    {statusOptions.find((s) => s.key === lead.status)?.label || lead.status}
+                  </Badge>
                 </div>
-                <div className="mt-2">
-                  <FollowUpCell date={lead.nextFollowUpDate} />
-                </div>
+                <dl className="mt-3 space-y-1.5 border-t pt-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <dt className="flex w-20 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5" /> Phone
+                    </dt>
+                    <dd className="min-w-0 truncate">{lead.phone || '—'}</dd>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <dt className="flex w-20 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <Mail className="h-3.5 w-3.5" /> Email
+                    </dt>
+                    <dd className="min-w-0 truncate">{displayEmail(lead.email) || '—'}</dd>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <dt className="flex w-20 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <Bell className="h-3.5 w-3.5" /> Follow-up
+                    </dt>
+                    <dd className="min-w-0">
+                      {lead.nextFollowUpDate ? <FollowUpCell date={lead.nextFollowUpDate} /> : <span className="text-muted-foreground">Not set</span>}
+                    </dd>
+                  </div>
+                </dl>
                 {canAssign && (
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <label className="shrink-0 text-xs font-medium text-muted-foreground">Assigned to</label>
@@ -663,19 +682,19 @@ function LeadsContent() {
                     </Select>
                   </div>
                 )}
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openItineraries(lead)}>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <Button size="sm" variant="outline" onClick={() => openItineraries(lead)}>
                     Itineraries
                   </Button>
                   {/* Once booked, the lead moves to Operations — Sales can no
                    * longer edit its details or add remarks here. */}
                   {(lead.status !== 'booked' || isOwner) && (
                     <>
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => handleEditClick(lead)}>
+                      <Button size="sm" variant="outline" onClick={() => handleEditClick(lead)}>
                         Edit
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => openRemarks(lead)} title="Remarks">
-                        <MessageSquare className="h-4 w-4 text-success" />
+                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => openRemarks(lead)}>
+                        <MessageSquare className="h-4 w-4 text-success" /> Remarks
                       </Button>
                     </>
                   )}
@@ -683,27 +702,27 @@ function LeadsContent() {
                 <div className="mt-2 flex gap-2">
                   {lead.phone && (
                     <Button size="sm" variant="outline" className="flex-1" asChild>
-                      <a href={`tel:${lead.phone}`}>
-                        <Phone className="h-4 w-4 text-sky-600" />
+                      <a href={`tel:${lead.phone}`} className="gap-1.5">
+                        <Phone className="h-4 w-4 text-sky-600" /> Call
                       </a>
                     </Button>
                   )}
                   {lead.phone && (
                     <Button size="sm" variant="outline" className="flex-1" asChild>
-                      <a href={waLink(lead.phone)} target="_blank" rel="noopener noreferrer">
-                        <WhatsAppIcon className="h-4 w-4 text-success" />
+                      <a href={waLink(lead.phone)} target="_blank" rel="noopener noreferrer" className="gap-1.5">
+                        <WhatsAppIcon className="h-4 w-4 text-success" /> WhatsApp
                       </a>
                     </Button>
                   )}
                   {lead.email && !isPlaceholderEmail(lead.email) && (
                     <Button size="sm" variant="outline" className="flex-1" asChild>
-                      <a href={`mailto:${lead.email}`}>
-                        <Mail className="h-4 w-4 text-amber-600" />
+                      <a href={`mailto:${lead.email}`} className="gap-1.5">
+                        <Mail className="h-4 w-4 text-amber-600" /> Email
                       </a>
                     </Button>
                   )}
                   {isOwner && (
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(lead._id)}>
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(lead._id)} aria-label="Delete lead">
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   )}
@@ -860,12 +879,22 @@ function LeadsContent() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
-          <Card className="max-h-[90vh] w-full overflow-y-auto rounded-b-none p-6 sm:max-w-md sm:rounded-xl">
-            <h2 className="text-2xl font-bold mb-4">
-              {editingId ? 'Edit Lead' : 'Add New Lead'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-6">
+          <Card className="flex max-h-[calc(100dvh-9rem)] w-full max-w-md flex-col gap-0 overflow-hidden rounded-2xl p-0 shadow-2xl sm:max-h-[90vh]">
+            <div className="flex shrink-0 items-center justify-between border-b px-5 py-3">
+              <h2 className="text-xl font-bold">{editingId ? 'Edit Lead' : 'Add New Lead'}</h2>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                disabled={submitting}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium mb-1">Name</label>
@@ -1074,11 +1103,13 @@ function LeadsContent() {
                 </Select>
               </div>
 
-              <div className="flex gap-2 justify-end pt-4">
-                <Button variant="outline" onClick={() => setShowModal(false)} disabled={submitting}>
+              </div>
+
+              <div className="flex shrink-0 gap-2 border-t px-5 py-3 sm:justify-end">
+                <Button type="button" variant="outline" className="flex-1 sm:flex-none" onClick={() => setShowModal(false)} disabled={submitting}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={submitting} className="gap-2">
+                <Button type="submit" disabled={submitting} className="flex-1 gap-2 sm:flex-none">
                   {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {editingId ? 'Update Lead' : submitting ? 'Adding…' : 'Add Lead'}
                 </Button>

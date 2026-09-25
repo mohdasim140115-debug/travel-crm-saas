@@ -242,7 +242,7 @@ export default function SettingsPage() {
         {/* Right content */}
         <Card
           className={cn(
-            'scroll-hover-thin scroll-smooth max-h-[calc(100vh-6rem)] min-h-[400px] overflow-y-auto p-5 lg:sticky lg:top-20 lg:block',
+            'scroll-hover-thin scroll-smooth max-h-[calc(100vh-6rem)] min-h-[400px] overflow-y-auto p-3 max-sm:-mx-2 sm:p-5 lg:sticky lg:top-20 lg:block',
             mobileView === 'list' ? 'hidden' : 'block'
           )}
         >

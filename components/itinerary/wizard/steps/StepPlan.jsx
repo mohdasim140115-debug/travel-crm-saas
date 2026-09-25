@@ -13,10 +13,13 @@ import {
   Trash2,
   Search,
   ChevronsUpDown,
+  ChevronDown,
+  ChevronUp,
   ImagePlus,
   Upload,
   X,
   Bold,
+  Calendar as CalendarIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -125,6 +128,23 @@ export default function StepPlan({ form, update, showErrors = false }) {
   const [imagePopoverOpen, setImagePopoverOpen] = useState({})
   const [uploadingIndex, setUploadingIndex] = useState(null)
   const [boldPopoverOpen, setBoldPopoverOpen] = useState({})
+  // Phone only: a long day description is clamped to ~5 lines with a
+  // "See more" toggle. descLong = it is taller than the clamp; expanded = the
+  // user opened it (focusing it to edit also opens it).
+  const [descExpanded, setDescExpanded] = useState({})
+  const [descLong, setDescLong] = useState({})
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 640) return
+    setDescLong((prev) => {
+      let next = prev
+      Object.entries(descriptionRefs.current).forEach(([i, el]) => {
+        if (!el || descExpanded[i]) return
+        const long = el.scrollHeight > el.clientHeight + 2
+        if (Boolean(prev[i]) !== long) next = { ...next, [i]: long }
+      })
+      return next
+    })
+  })
   const fileInputRefs = useRef({})
   const customColorRefs = useRef({})
   const descriptionRefs = useRef({})
@@ -400,10 +420,10 @@ export default function StepPlan({ form, update, showErrors = false }) {
                   onClick={() =>
                     updateDay(index, { title: '', distance: '', travelDuration: '', description: '' })
                   }
-                  className="text-muted-foreground hover:text-destructive"
+                  className="flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:text-destructive"
                   title="Clear day fields"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-3.5 w-3.5" /> Clear
                 </button>
               </div>
               <Popover
@@ -478,8 +498,8 @@ export default function StepPlan({ form, update, showErrors = false }) {
                   )}
                 />
               </div>
-              <div className="flex items-center justify-between gap-2 sm:block sm:space-y-1.5">
-                <Label className="shrink-0 text-[10px] font-bold uppercase leading-tight tracking-wide text-accent-secondary sm:text-xs">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wide text-accent-secondary">
                   Schedule Date
                 </Label>
                 <Popover
@@ -489,8 +509,9 @@ export default function StepPlan({ form, update, showErrors = false }) {
                   <PopoverTrigger asChild>
                     <button
                       type="button"
-                      className="relative w-32 shrink-0 rounded-full border border-accent-secondary/30 bg-accent-secondary/10 py-2 pl-3 pr-2 text-left text-sm font-bold text-accent-secondary"
+                      className="flex h-10 w-full items-center gap-2 rounded-full border border-accent-secondary/30 bg-accent-secondary/10 px-4 text-left text-sm font-bold text-accent-secondary sm:w-40"
                     >
+                      <CalendarIcon className="h-4 w-4 shrink-0" />
                       {day.date ? format(new Date(String(day.date).slice(0, 10)), 'dd MMM yyyy') : 'Select date'}
                     </button>
                   </PopoverTrigger>
@@ -512,25 +533,31 @@ export default function StepPlan({ form, update, showErrors = false }) {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div className="relative">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wide text-primary">Distance (km)</Label>
+                <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Distance in km"
+                  placeholder="e.g. 120"
                   value={day.distance || ''}
                   onChange={(e) => updateDay(index, { distance: e.target.value.replace(/[^0-9]/g, '') })}
                   className="rounded-full pl-10"
                   inputMode="numeric"
                 />
+                </div>
               </div>
-              <div className="relative">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wide text-primary">Travel time (hrs)</Label>
+                <div className="relative">
                 <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Time in hours"
+                  placeholder="e.g. 3.5"
                   value={day.travelDuration || ''}
                   onChange={(e) => updateDay(index, { travelDuration: e.target.value.replace(/[^0-9.]/g, '') })}
                   className="rounded-full pl-10"
                   inputMode="decimal"
                 />
+                </div>
               </div>
             </div>
 
@@ -624,13 +651,28 @@ export default function StepPlan({ form, update, showErrors = false }) {
                   lastSyncedRef.current[index] = text
                   updateDay(index, { description: text })
                 }}
+                onFocus={() => setDescExpanded((s) => (s[index] ? s : { ...s, [index]: true }))}
                 onMouseUp={() => saveSelection(index)}
                 onKeyUp={() => saveSelection(index)}
                 className={cn(
+                  !descExpanded[index] && 'max-h-[8.5rem] overflow-hidden sm:max-h-none',
                   'min-h-[110px] w-full rounded-xl border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm',
                   descriptionMissing && 'border-destructive focus-visible:border-destructive'
                 )}
               />
+              {(descLong[index] || descExpanded[index]) && (
+                <button
+                  type="button"
+                  onClick={() => setDescExpanded((s) => ({ ...s, [index]: !s[index] }))}
+                  className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 py-2 text-sm font-semibold text-primary active:bg-primary/20 sm:hidden"
+                >
+                  {descExpanded[index] ? (
+                    <>See less <ChevronUp className="h-4 w-4" /></>
+                  ) : (
+                    <>See more <ChevronDown className="h-4 w-4" /></>
+                  )}
+                </button>
+              )}
             </div>
             </div>
 

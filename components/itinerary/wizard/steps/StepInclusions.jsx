@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { Plus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useMasters } from '@/hooks/useMasters'
 
@@ -39,13 +40,13 @@ function ListSection({ title, items, onChange, defaults, loading }) {
 
   return (
     <Card className="border-border/60 shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pb-4 sm:px-6">
         <CardTitle className="text-base">{title}</CardTitle>
         <Button type="button" variant="outline" size="sm" onClick={() => onChange(defaults)}>
           Load defaults
         </Button>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 px-3 sm:px-6">
         <div className="flex gap-2">
           <Input
             ref={inputRef}
@@ -69,9 +70,14 @@ function ListSection({ title, items, onChange, defaults, loading }) {
         )}
         <div className="space-y-2">
           {items.map((item, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input value={item} onChange={(e) => update(i, e.target.value)} />
-              <Button type="button" variant="ghost" size="sm" onClick={() => remove(i)} className="text-destructive">
+            <div key={i} className="flex items-start gap-1">
+              <Textarea
+                rows={1}
+                value={item}
+                onChange={(e) => update(i, e.target.value)}
+                className="min-h-9 resize-none py-1.5 text-sm leading-snug"
+              />
+              <Button type="button" variant="ghost" size="sm" onClick={() => remove(i)} className="h-9 w-9 shrink-0 px-0 text-lg text-destructive" aria-label="Remove">
                 ×
               </Button>
             </div>

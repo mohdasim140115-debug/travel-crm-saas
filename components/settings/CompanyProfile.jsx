@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, Upload, X, Building2, QrCode } from 'lucide-react'
+import { Loader2, Upload, X, Building2, QrCode, MapPin, Landmark } from 'lucide-react'
 
 const token = () => (typeof window !== 'undefined' ? localStorage.getItem('token') : null)
 
@@ -285,7 +285,7 @@ export function CompanyProfile() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
         <h3 className="text-lg font-semibold">Company Profile</h3>
         <p className="text-sm text-muted-foreground">
@@ -294,8 +294,8 @@ export function CompanyProfile() {
       </div>
 
       {/* Logo */}
-      <div className="flex items-center gap-4">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+      <div className="flex flex-col items-center gap-4 rounded-xl border bg-card/60 p-4 shadow-sm sm:flex-row sm:items-center">
+        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
           {form.logo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={form.logo} alt="Logo" className="h-full w-full object-contain" />
@@ -303,7 +303,7 @@ export function CompanyProfile() {
             <Building2 className="h-8 w-8 text-muted-foreground" />
           )}
         </div>
-        <div className="space-y-2">
+        <div className="w-full min-w-0 flex-1 space-y-2">
           <input
             ref={fileRef}
             type="file"
@@ -312,7 +312,7 @@ export function CompanyProfile() {
             onChange={(e) => onImageFile(e, 'logo')}
           />
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
+            <Button size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={() => fileRef.current?.click()}>
               <Upload className="mr-1 h-4 w-4" /> Upload logo
             </Button>
             {form.logo && (
@@ -328,30 +328,32 @@ export function CompanyProfile() {
             value={form.logo?.startsWith('data:') ? '' : form.logo}
             onChange={(e) => set({ logo: e.target.value })}
             placeholder="https://your-logo-url.png"
-            className="max-w-sm"
+            className="w-full sm:max-w-sm"
           />
         </div>
       </div>
 
       {/* Basic details */}
+      <div className="space-y-3 rounded-xl border bg-card/60 p-3 shadow-sm sm:p-4">
+      <h4 className="flex items-center gap-2 text-sm font-semibold"><span className="h-4 w-1 rounded-full bg-primary" /><Building2 className="h-4 w-4 text-primary" /> Basic details</h4>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
+        <div className="space-y-1.5">
           <Label>Company name *</Label>
           <Input value={form.name} onChange={(e) => set({ name: e.target.value })} />
         </div>
-        <div>
+        <div className="space-y-1.5">
           <Label>Website</Label>
           <Input value={form.website} onChange={(e) => set({ website: e.target.value })} placeholder="www.example.com" />
         </div>
-        <div>
+        <div className="space-y-1.5">
           <Label>Phone</Label>
           <Input value={form.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="+91 ..." />
         </div>
-        <div>
+        <div className="space-y-1.5">
           <Label>Email</Label>
           <Input value={form.email} onChange={(e) => set({ email: e.target.value })} placeholder="hello@example.com" />
         </div>
-        <div className="sm:col-span-2">
+        <div className="space-y-1.5 sm:col-span-2">
           <Label>Meta link (Facebook / Instagram)</Label>
           <Input
             value={form.metaLink}
@@ -361,8 +363,12 @@ export function CompanyProfile() {
         </div>
       </div>
 
+      </div>
+
+      <div className="space-y-3 rounded-xl border bg-card/60 p-3 shadow-sm sm:p-4">
+      <h4 className="flex items-center gap-2 text-sm font-semibold"><span className="h-4 w-1 rounded-full bg-primary" /><MapPin className="h-4 w-4 text-primary" /> Office addresses</h4>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
+        <div className="space-y-1.5">
           <Label>Address 1</Label>
           <Textarea
             value={form.address}
@@ -371,7 +377,7 @@ export function CompanyProfile() {
             className="min-h-[70px]"
           />
         </div>
-        <div>
+        <div className="space-y-1.5">
           <Label>Address 2 (optional)</Label>
           <Textarea
             value={form.address2}
@@ -382,23 +388,25 @@ export function CompanyProfile() {
         </div>
       </div>
 
+      </div>
+
       {/* Bank details */}
-      <div>
-        <h4 className="mb-2 text-sm font-semibold">Bank details (for payments on itinerary)</h4>
+      <div className="rounded-xl border bg-card/60 p-3 shadow-sm sm:p-4">
+        <div className="mb-3"><h4 className="flex items-center gap-2 text-sm font-semibold"><span className="h-4 w-1 rounded-full bg-primary" /><Landmark className="h-4 w-4 text-primary" /> Bank details</h4><p className="mt-1 text-xs text-muted-foreground">Shown on the itinerary for client payments.</p></div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
+          <div className="space-y-1.5">
             <Label>Bank name</Label>
             <Input value={form.bankDetails.bankName} onChange={(e) => setBank({ bankName: e.target.value })} />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <Label>Account name</Label>
             <Input value={form.bankDetails.accountName} onChange={(e) => setBank({ accountName: e.target.value })} />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <Label>Account number</Label>
             <Input value={form.bankDetails.accountNumber} onChange={(e) => setBank({ accountNumber: e.target.value })} />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <Label>IFSC code</Label>
             <Input value={form.bankDetails.ifscCode} onChange={(e) => setBank({ ifscCode: e.target.value })} />
           </div>
@@ -406,8 +414,8 @@ export function CompanyProfile() {
       </div>
 
       {/* Payment scanner (QR code) */}
-      <div>
-        <h4 className="mb-2 text-sm font-semibold">Payment scanner (QR)</h4>
+      <div className="rounded-xl border bg-card/60 p-3 shadow-sm sm:p-4">
+        <div className="mb-1"><h4 className="flex items-center gap-2 text-sm font-semibold"><span className="h-4 w-1 rounded-full bg-primary" /><QrCode className="h-4 w-4 text-primary" /> Payment scanner (QR)</h4></div>
         <p className="mb-3 text-xs text-muted-foreground">
           Your payment QR code (e.g. UPI / GPay) shown on the itinerary.
         </p>
@@ -415,7 +423,7 @@ export function CompanyProfile() {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={save} disabled={saving}>
+        <Button onClick={save} disabled={saving} className="w-full sm:w-auto">
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save company profile
         </Button>
