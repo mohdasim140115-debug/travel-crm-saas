@@ -190,6 +190,8 @@ export default function BookingDetailPage() {
               {
                 checkIn: toIsoDate(h.checkIn),
                 checkOut: toIsoDate(h.checkOut),
+                returnCheckIn: toIsoDate(h.returnCheckIn),
+                returnCheckOut: toIsoDate(h.returnCheckOut),
                 mealPlan: h.mealPlan || '',
                 roomPrice: h.roomPrice ?? h.quotedRoomPricePerNight ?? '',
                 extraBedPrice: h.extraBedPrice ?? h.quotedExtraBedPrice ?? '',
@@ -300,6 +302,10 @@ export default function BookingDetailPage() {
       toast.error('Enter the room price agreed with the hotel')
       return
     }
+    if (draft.returnCheckIn && draft.returnCheckOut && draft.returnCheckOut <= draft.returnCheckIn) {
+      toast.error('Re-check-out must be after re-check-in')
+      return
+    }
     if (draft.checkIn && draft.checkOut && draft.checkOut <= draft.checkIn) {
       toast.error('Check-out must be after check-in')
       return
@@ -328,6 +334,8 @@ export default function BookingDetailPage() {
           roomType: item.roomType,
           checkIn: draft.checkIn,
           checkOut: draft.checkOut,
+          returnCheckIn: draft.returnCheckIn,
+          returnCheckOut: draft.returnCheckOut,
           mealPlan: draft.mealPlan,
           roomPrice: Number(draft.roomPrice) || 0,
           extraBedPrice: Number(draft.extraBedPrice) || 0,
@@ -360,6 +368,10 @@ export default function BookingDetailPage() {
       toast.error('Enter the advance amount required')
       return
     }
+    if (draft.returnCheckIn && draft.returnCheckOut && draft.returnCheckOut <= draft.returnCheckIn) {
+      toast.error('Re-check-out must be after re-check-in')
+      return
+    }
     if (draft.checkIn && draft.checkOut && draft.checkOut <= draft.checkIn) {
       toast.error('Check-out must be after check-in')
       return
@@ -378,6 +390,8 @@ export default function BookingDetailPage() {
           roomType: item.roomType,
           checkIn: draft.checkIn,
           checkOut: draft.checkOut,
+          returnCheckIn: draft.returnCheckIn,
+          returnCheckOut: draft.returnCheckOut,
           mealPlan: draft.mealPlan,
           roomPrice: Number(draft.roomPrice) || 0,
           extraBedPrice: Number(draft.extraBedPrice) || 0,
@@ -774,7 +788,9 @@ export default function BookingDetailPage() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Nights</Label>
-                      <p className="flex h-9 items-center text-sm">{item.nights ?? '—'}</p>
+                      <p className="flex h-9 items-center text-sm">
+                        {item.nights ?? '—'}
+                      </p>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Rooms</Label>
@@ -790,6 +806,47 @@ export default function BookingDetailPage() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Same hotel again later in the trip — shown as its own
+                    * clearly-labelled dates, exactly as entered in the itinerary. */}
+                  {item.returnCheckIn && (
+                    <div className="grid gap-3 rounded-lg border border-dashed p-2.5 sm:grid-cols-2 lg:grid-cols-5">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Re-check-in</Label>
+                        <Select
+                          value={draft.returnCheckIn || toIsoDate(item.returnCheckIn) || ''}
+                          onValueChange={(v) => setHotelDrafts((d) => ({ ...d, [item.key]: { ...d[item.key], returnCheckIn: v } }))}
+                          disabled={!editing}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Select date" /></SelectTrigger>
+                          <SelectContent>
+                            {[...new Set([...tripDates, toIsoDate(item.returnCheckIn), toIsoDate(item.returnCheckOut), draft.returnCheckIn].filter(Boolean))]
+                              .sort()
+                              .map((d) => (
+                                <SelectItem key={d} value={d}>{formatDate(d)}</SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Re-check-out</Label>
+                        <Select
+                          value={draft.returnCheckOut || toIsoDate(item.returnCheckOut) || ''}
+                          onValueChange={(v) => setHotelDrafts((d) => ({ ...d, [item.key]: { ...d[item.key], returnCheckOut: v } }))}
+                          disabled={!editing}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Select date" /></SelectTrigger>
+                          <SelectContent>
+                            {[...new Set([...tripDates, toIsoDate(item.returnCheckIn), toIsoDate(item.returnCheckOut), draft.returnCheckOut].filter(Boolean))]
+                              .sort()
+                              .map((d) => (
+                                <SelectItem key={d} value={d}>{formatDate(d)}</SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-1 sm:max-w-xs">
                     <Label className="text-xs">Meal plan</Label>

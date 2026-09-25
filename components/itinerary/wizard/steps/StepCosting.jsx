@@ -138,6 +138,21 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
     })
   }
 
+  // Picking check-in / check-out dates fills the Nights box by itself (the
+  // count of nights between them, plus the return visit when Re-check-in is
+  // on) so the dates and the Nights never disagree.
+  const dayGap = (a, b) =>
+    a && b ? Math.round((new Date(String(b).slice(0, 10)) - new Date(String(a).slice(0, 10))) / 86400000) : 0
+  const updateStayDates = (stay, patch) => {
+    const next = { ...stay, ...patch }
+    let n = dayGap(next.checkIn, next.checkOut)
+    if (next.hasReCheckIn && next.reCheckIn && next.reCheckOut) n += dayGap(next.reCheckIn, next.reCheckOut)
+    updateNightStay(stay, {
+      ...patch,
+      ...(n > 0 ? { roomLines: getRoomLines(stay).map((l) => ({ ...l, nights: n })) } : {}),
+    })
+  }
+
   const removeNightStay = (stay) => {
     update({ nightStays: (form.nightStays || []).filter((s) => s !== stay) })
   }
@@ -353,7 +368,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                     <PlanDateSelect
                       days={form.days}
                       value={stay.checkIn ? String(stay.checkIn).slice(0, 10) : ''}
-                      onChange={(v) => updateNightStay(stay, { checkIn: v, datesOverridden: true })}
+                      onChange={(v) => updateStayDates(stay, { checkIn: v, datesOverridden: true })}
                     />
                   </div>
                   <div className="space-y-1">
@@ -361,7 +376,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                     <PlanDateSelect
                       days={form.days}
                       value={stay.checkOut ? String(stay.checkOut).slice(0, 10) : ''}
-                      onChange={(v) => updateNightStay(stay, { checkOut: v, datesOverridden: true })}
+                      onChange={(v) => updateStayDates(stay, { checkOut: v, datesOverridden: true })}
                     />
                   </div>
                 </div>
@@ -390,7 +405,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                     <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
                       <Switch
                         checked={!!stay.hasReCheckIn}
-                        onCheckedChange={(v) => updateNightStay(stay, { hasReCheckIn: v })}
+                        onCheckedChange={(v) => updateStayDates(stay, { hasReCheckIn: v })}
                       />
                       Client re-checks in to {stay.hotelName || 'this hotel'} later in the trip
                     </label>
@@ -401,7 +416,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                           <PlanDateSelect
                             days={form.days}
                             value={stay.reCheckIn ? String(stay.reCheckIn).slice(0, 10) : ''}
-                            onChange={(v) => updateNightStay(stay, { reCheckIn: v })}
+                            onChange={(v) => updateStayDates(stay, { reCheckIn: v })}
                           />
                         </div>
                         <div className="space-y-1">
@@ -409,7 +424,7 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
                           <PlanDateSelect
                             days={form.days}
                             value={stay.reCheckOut ? String(stay.reCheckOut).slice(0, 10) : ''}
-                            onChange={(v) => updateNightStay(stay, { reCheckOut: v })}
+                            onChange={(v) => updateStayDates(stay, { reCheckOut: v })}
                           />
                         </div>
                       </div>

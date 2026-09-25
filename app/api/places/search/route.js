@@ -1,6 +1,8 @@
 import { authenticate, requireRoles } from '@/lib/middleware'
 
 const OWNER_ROLES = ['admin', 'superadmin']
+// Sales / Operations / Accounts can add hotels & vehicles too (edit/delete stay owner-only).
+const ADD_ROLES = [...OWNER_ROLES, 'agent', 'manager', 'operations', 'accounts']
 const PLACES_KEY = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY
 
 /**
@@ -13,7 +15,7 @@ export async function GET(request) {
     if (authResult.error) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
-    const denied = requireRoles(authResult.user.role, OWNER_ROLES)
+    const denied = requireRoles(authResult.user.role, ADD_ROLES)
     if (denied) return Response.json({ error: denied.error }, { status: denied.status })
 
     if (!PLACES_KEY) {

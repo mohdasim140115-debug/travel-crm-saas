@@ -27,7 +27,9 @@ function formatPrice(n) {
   return `₹${Number(n).toLocaleString('en-IN')}`
 }
 
-export function VehicleManager() {
+/** `readOnly` — staff can look up and ADD vehicles and route fares; only the
+ * Owner edits or deletes existing ones. */
+export function VehicleManager({ readOnly = false } = {}) {
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -227,14 +229,16 @@ export function VehicleManager() {
                   ))}
                 </div>
               )}
-              <div className="flex justify-end gap-1 pt-1">
-                <Button size="icon" variant="ghost" onClick={() => openEdit(v)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => remove(v)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
+              {!readOnly && (
+                <div className="flex justify-end gap-1 pt-1">
+                  <Button size="icon" variant="ghost" onClick={() => openEdit(v)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => remove(v)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              )}
             </div>
           ))}
         </div>

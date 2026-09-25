@@ -173,6 +173,11 @@ function VouchersPageContent() {
           }
           return {
             ...h,
+            // Dates Operations confirmed on the booking are final — the voucher
+            // shows them read-only.
+            datesLocked: Boolean(match?.checkIn || match?.checkOut),
+            returnCheckIn: match?.returnCheckIn ? new Date(match.returnCheckIn).toISOString().slice(0, 10) : '',
+            returnCheckOut: match?.returnCheckOut ? new Date(match.returnCheckOut).toISOString().slice(0, 10) : '',
             roomCount: match?.roomCount ?? null,
             extraBeds: match?.extraBeds ?? 0,
             cnbCount: match?.cnbCount ?? 0,
@@ -192,6 +197,7 @@ function VouchersPageContent() {
             )
             if (match) {
               seedIds.push(String(match._id))
+              if (match.datesLocked) continue
               seedDates[String(match._id)] = {
                 checkIn: sh.checkIn ? new Date(sh.checkIn).toISOString().slice(0, 10) : '',
                 checkOut: sh.checkOut ? new Date(sh.checkOut).toISOString().slice(0, 10) : '',
@@ -215,6 +221,8 @@ function VouchersPageContent() {
                   cnbCount: h.cnbCount,
                   checkIn: picked.checkIn || h.checkIn,
                   checkOut: picked.checkOut || h.checkOut,
+                  returnCheckIn: h.returnCheckIn || undefined,
+                  returnCheckOut: h.returnCheckOut || undefined,
                   cost: h.cost,
                 }
               }),
@@ -275,6 +283,8 @@ function VouchersPageContent() {
           cnbCount: h.cnbCount,
           checkIn: picked.checkIn || h.checkIn,
           checkOut: picked.checkOut || h.checkOut,
+          returnCheckIn: h.returnCheckIn || undefined,
+          returnCheckOut: h.returnCheckOut || undefined,
           cost: h.cost,
         }
       }),
@@ -609,7 +619,32 @@ function VouchersPageContent() {
                               {h.roomType ? ` · ${h.roomType}` : ''}
                             </span>
                           </label>
-                          {isChecked && (
+                          {isChecked && h.datesLocked && (
+                            <div className="ml-6 grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <Label className="text-xs">Check-in</Label>
+                                <p className="font-medium">{formatDate(hotelDates[id]?.checkIn) || '—'}</p>
+                              </div>
+                              <div>
+                                <Label className="text-xs">Check-out</Label>
+                                <p className="font-medium">{formatDate(hotelDates[id]?.checkOut) || '—'}</p>
+                              </div>
+                              {h.returnCheckIn && (
+                                <>
+                                  <div>
+                                    <Label className="text-xs">Re-check-in</Label>
+                                    <p className="font-medium">{formatDate(h.returnCheckIn)}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Re-check-out</Label>
+                                    <p className="font-medium">{formatDate(h.returnCheckOut) || '—'}</p>
+                                  </div>
+                                </>
+                              )}
+                              <p className="col-span-2 text-xs text-muted-foreground">Dates confirmed by Operations — cannot be changed here.</p>
+                            </div>
+                          )}
+                          {isChecked && !h.datesLocked && (
                             <div className="ml-6 grid grid-cols-2 gap-2">
                               <div>
                                 <Label className="text-xs">Check-in</Label>
@@ -730,6 +765,12 @@ function VouchersPageContent() {
                               <span className="col-span-2 flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
                                 {formatDate(checkIn) || '—'} → {formatDate(checkOut) || '—'}
+                              </span>
+                            )}
+                            {h.returnCheckIn && (
+                              <span className="col-span-2 flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                Re-check-in: {formatDate(h.returnCheckIn)} → {formatDate(h.returnCheckOut) || '—'}
                               </span>
                             )}
                             {h.cost > 0 && (

@@ -129,6 +129,9 @@ const bookingSchema = new mongoose.Schema(
         roomCount: Number,
         checkIn: Date,
         checkOut: Date,
+        /** Same hotel again later in the trip (itinerary re-check-in) — its own dates, editable by Operations. */
+        returnCheckIn: Date,
+        returnCheckOut: Date,
         quotedPrice: Number,
         negotiatedPrice: Number,
         supplierId: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier' },

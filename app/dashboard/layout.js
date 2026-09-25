@@ -243,6 +243,7 @@ export default function DashboardLayout({ children }) {
       '/dashboard/analytics': BarChart3,
       '/dashboard/admin': Shield,
       '/dashboard/settings': Settings,
+      '/dashboard/rates': Building2,
     }
     return items.map((item) => ({ ...item, icon: icons[item.href] || Home }))
   }, [user])
