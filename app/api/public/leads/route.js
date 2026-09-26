@@ -44,7 +44,29 @@ import GoogleLeadEvent from '@/models/GoogleLeadEvent'
  *   "landing_page_id": "LP-KASHMIR-01", "page_url": "https://...", "referrer": "https://..."
  * }
  */
+/** Every request this endpoint rejects or fails on is written to the same
+ * inbound log the Google events use — before, a 401/400/500 left no trace at
+ * all, so a lead a landing page "sent" but the CRM never stored (e.g. because
+ * the request errored) could not be found afterwards. Never throws. */
+async function logRejected({ team, body, error, status }) {
+  try {
+    await GoogleLeadEvent.create({
+      teamId: team?._id,
+      source: 'google_landing_page',
+      formId: body?.form_id,
+      landingPageId: body?.landing_page_id,
+      status: 'error',
+      error: `HTTP ${status}: ${error}`,
+      rawPayload: body || {},
+    })
+  } catch (e) {
+    console.error('Public lead reject log failed:', e.message)
+  }
+}
+
 export async function POST(request) {
+  let team = null
+  let body = null
   try {
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -68,12 +90,12 @@ export async function POST(request) {
 
     await connectDB()
     const hash = hashInboundApiKey(apiKey)
-    const team = await Team.findOne({ inboundApiKeyHash: hash })
+    team = await Team.findOne({ inboundApiKeyHash: hash })
     if (!team) {
       return Response.json({ error: 'Invalid API key' }, { status: 401 })
     }
 
-    const body = await request.json()
+    body = await request.json()
 
     // Google Ads → Landing Page / Website: detected by an explicit source or
     // by the presence of Google-only fields, so an ordinary website/API
@@ -158,6 +180,7 @@ export async function POST(request) {
     })
 
     if (result.error) {
+      await logRejected({ team, body, error: result.error, status: result.status })
       return Response.json({ error: result.error }, { status: result.status })
     }
 
@@ -172,6 +195,7 @@ export async function POST(request) {
     )
   } catch (error) {
     console.error('Public lead ingest error:', error)
+    if (team) await logRejected({ team, body, error: error.message, status: 500 })
     return Response.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

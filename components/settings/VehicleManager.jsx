@@ -166,8 +166,8 @@ export function VehicleManager({ readOnly = false } = {}) {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 sm:max-w-xs">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full min-w-0 sm:w-auto sm:max-w-xs sm:flex-1">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search vehicle or route..."
@@ -176,7 +176,7 @@ export function VehicleManager({ readOnly = false } = {}) {
             className="pl-9"
           />
         </div>
-        <Button size="sm" className="gap-1" onClick={openAdd}>
+        <Button size="sm" className="h-9 w-full gap-1 sm:w-auto" onClick={openAdd}>
           <Plus className="h-4 w-4" /> Add vehicle
         </Button>
       </div>

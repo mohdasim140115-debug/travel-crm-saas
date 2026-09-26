@@ -339,8 +339,8 @@ export function HotelManager({ readOnly = false } = {}) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 sm:max-w-xs">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full min-w-0 sm:w-auto sm:max-w-xs sm:flex-1">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search saved hotels..."
@@ -349,20 +349,22 @@ export function HotelManager({ readOnly = false } = {}) {
             className="pl-9"
           />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1"
-          onClick={() => {
-            setManualOpen(false)
-            setPlacesOpen(true)
-          }}
-        >
-          <MapPin className="h-4 w-4" /> Search Google Places
-        </Button>
-        <Button size="sm" className="gap-1" onClick={openManualAdd}>
-          <Plus className="h-4 w-4" /> Add manually
-        </Button>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1"
+            onClick={() => {
+              setManualOpen(false)
+              setPlacesOpen(true)
+            }}
+          >
+            <MapPin className="h-4 w-4" /> <span className="sm:hidden">Google Places</span><span className="hidden sm:inline">Search Google Places</span>
+          </Button>
+          <Button size="sm" className="h-9 gap-1" onClick={openManualAdd}>
+            <Plus className="h-4 w-4" /> Add manually
+          </Button>
+        </div>
       </div>
 
       {loading ? (
