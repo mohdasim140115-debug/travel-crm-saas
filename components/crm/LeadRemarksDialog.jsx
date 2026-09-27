@@ -83,6 +83,10 @@ export function LeadRemarksDialog({ lead, open, onOpenChange, onSaved }) {
       toast.error('Follow-up date is required')
       return
     }
+    if (needsFollowUp && new Date(followUpDate).getTime() < Date.now() - 60000) {
+      toast.error('Follow-up time has already passed — check the time and AM/PM')
+      return
+    }
     setSaving(true)
     const token = localStorage.getItem('token')
     const statusChanged = status !== lead?.status

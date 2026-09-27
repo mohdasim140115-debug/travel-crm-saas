@@ -167,6 +167,10 @@ function FollowUpsContent() {
       toast.error('Follow-up date is required')
       return
     }
+    if (editNeedsFollowUp && new Date(editForm.scheduledDate).getTime() < Date.now() - 60000) {
+      toast.error('Follow-up time has already passed — check the time and AM/PM')
+      return
+    }
     if (!editForm.description.trim()) {
       toast.error('Remark is required')
       return

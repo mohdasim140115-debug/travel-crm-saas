@@ -139,6 +139,14 @@ function LeadsContent() {
     if (['all', 'any', 'today', 'pending'].includes(f)) setFilterFollowUp(f)
   }, [searchParams])
 
+  // The dashboard's "Not Contacted Yet" / status-count tiles link here with
+  // ?status=new (etc.) — pick that up too, same as ?followUp= above, so the
+  // list actually narrows to that status instead of showing everything.
+  useEffect(() => {
+    const s = searchParams.get('status')
+    if (s) setFilterStatus(s)
+  }, [searchParams])
+
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}')
@@ -287,6 +295,10 @@ function LeadsContent() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (needsGenericFollowUp && formData.followUpDate && new Date(formData.followUpDate).getTime() < Date.now() - 60000) {
+      toast.error('Follow-up time has already passed — check the time and AM/PM')
+      return
+    }
     setSubmitting(true)
     try {
       const token = localStorage.getItem('token')
