@@ -336,7 +336,9 @@ export function studioFormToPayload(form) {
 export function itineraryToStudioForm(data) {
   if (!data?.itinerary) return { ...DEFAULT_STUDIO_FORM }
   const it = data.itinerary
-  const preset = ['3N/4D', '4N/5D', '5N/6D', '6N/7D', '7N/8D'].includes(it.duration)
+  // Every non-custom preset in the Duration dropdown (2N/3D … 15N/16D) —
+  // a saved itinerary must reopen on the same preset, not fall to "custom".
+  const preset = Array.from({ length: 14 }, (_, i) => `${i + 2}N/${i + 3}D`).includes(it.duration)
     ? it.duration
     : it.duration
       ? 'custom'
