@@ -40,6 +40,8 @@ export async function GET(request) {
       .select('-activityConfirmations -paymentSchedule -otherExpenses -bookingDetails')
       .populate('leadId', 'firstName lastName email phone')
       .populate('itineraryId', 'tripName title destination nightStays hotels vehicles vehicle')
+      .populate('opsAssignedTo', 'name email')
+      .populate('accountsAssignedTo', 'name email')
       .sort({ createdAt: -1 })
       .limit(200)
       .lean()
@@ -116,6 +118,10 @@ export async function GET(request) {
         // both read the itinerary directly rather than a frozen copy.
         itineraryId: b.itineraryId?._id || b.itineraryId || null,
         salesEditEnabled: b.salesEditEnabled !== false,
+        opsAssignedTo: b.opsAssignedTo ? { name: b.opsAssignedTo.name, email: b.opsAssignedTo.email } : null,
+        accountsAssignedTo: b.accountsAssignedTo
+          ? { name: b.accountsAssignedTo.name, email: b.accountsAssignedTo.email }
+          : null,
         startDate: planRange?.start || b.startDate,
         endDate: planRange?.end || b.endDate,
         opsStatus: opsComplete ? 'done' : 'processing',

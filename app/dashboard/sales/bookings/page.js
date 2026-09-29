@@ -101,6 +101,10 @@ export default function MyBookingsPage() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {formatDate(b.startDate)} → {formatDate(b.endDate)}
                   </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>Operations: <span className="font-medium text-foreground">{b.opsAssignedTo?.name || 'Unassigned'}</span></span>
+                    <span>Accounts: <span className="font-medium text-foreground">{b.accountsAssignedTo?.name || 'Unassigned'}</span></span>
+                  </div>
                   <div className="mt-2">
                     <Badge className={b.opsStatus === 'done' ? 'bg-success' : ''} variant={b.opsStatus === 'done' ? undefined : 'outline'}>
                       {b.opsStatus === 'done' ? 'Done' : 'Processing'}
@@ -117,6 +121,8 @@ export default function MyBookingsPage() {
                   <TableHead>Client</TableHead>
                   <TableHead>Arrival date</TableHead>
                   <TableHead>Departure date</TableHead>
+                  <TableHead>Operations</TableHead>
+                  <TableHead>Accounts</TableHead>
                   <TableHead>Operations status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -124,13 +130,13 @@ export default function MyBookingsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                       <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                     </TableCell>
                   </TableRow>
                 ) : bookings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                       No closed bookings yet.
                     </TableCell>
                   </TableRow>
@@ -140,6 +146,8 @@ export default function MyBookingsPage() {
                       <TableCell className="font-medium">{leadDisplayName(b.leadId)}</TableCell>
                       <TableCell>{formatDate(b.startDate)}</TableCell>
                       <TableCell>{formatDate(b.endDate)}</TableCell>
+                      <TableCell>{b.opsAssignedTo?.name || <span className="text-muted-foreground">Unassigned</span>}</TableCell>
+                      <TableCell>{b.accountsAssignedTo?.name || <span className="text-muted-foreground">Unassigned</span>}</TableCell>
                       <TableCell>
                         <Badge
                           className={b.opsStatus === 'done' ? 'bg-success' : ''}
