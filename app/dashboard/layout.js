@@ -227,6 +227,7 @@ export default function DashboardLayout({ children }) {
       '/dashboard/platform/users': UsersRound,
       '/dashboard/owner': Home,
       '/dashboard/sales': Home,
+      '/dashboard/sales/bookings': Waypoints,
       '/dashboard/operations': Home,
       '/dashboard/accounts': Home,
       '/dashboard/leads': Users,

@@ -3,9 +3,15 @@ import ItineraryDay from '@/models/ItineraryDay'
 import ItineraryHotel from '@/models/ItineraryHotel'
 import ItineraryActivity from '@/models/ItineraryActivity'
 import Brand from '@/models/Brand'
+import Booking from '@/models/Booking'
 import { tenantFilter, withTenantBody } from '@/lib/tenant'
 import { generateShareToken } from '@/utils/itinerary'
 import { canOnlyViewOwnLeads } from '@/lib/permissions'
+
+/** Thrown by updateItinerary when Sales tries to edit an itinerary whose
+ * booking Operations/Accounts has locked (Booking.salesEditEnabled=false) —
+ * caught in the route and surfaced as 403, not a generic 500. */
+export class SalesEditLockedError extends Error {}
 
 /** Same resolution the PDF export uses: the itinerary's own brand if set,
  * otherwise the team's default (or oldest) active brand — so the preview
@@ -255,6 +261,23 @@ export async function createItinerary(authUser, body) {
 export async function updateItinerary(id, authUser, body) {
   const ownerScope = canOnlyViewOwnLeads(authUser.role) ? { createdBy: authUser.userId } : {}
   const filter = { _id: id, ...tenantFilter(authUser), ...ownerScope }
+
+  // Sales-only gate — checked before anything else so a locked booking can't
+  // be edited around by hitting this API directly (the Builder's Edit button
+  // is just the normal path in, not the only one). Operations/Accounts/Owner
+  // are never subject to this; it exists purely to stop Sales, and only
+  // applies once the itinerary actually has a booking against it.
+  if (canOnlyViewOwnLeads(authUser.role)) {
+    const booking = await Booking.findOne({ itineraryId: id, teamId: authUser.teamId })
+      .select('salesEditEnabled')
+      .lean()
+    if (booking && booking.salesEditEnabled === false) {
+      throw new SalesEditLockedError(
+        'Operations/Accounts has locked this booking — ask them to re-enable editing before you change it.'
+      )
+    }
+  }
+
   const { days, hotels, ...rest } = body
   const updates = { ...rest }
   if (updates.startDate) updates.startDate = parseDate(updates.startDate)

@@ -180,6 +180,24 @@ export async function PATCH(request, { params }) {
       return Response.json({ booking: cancelled })
     }
 
+    // Only Operations/Accounts (who've actually confirmed things with
+    // suppliers) or the Owner may lock/unlock Sales' ability to edit this
+    // booking's itinerary — Sales can never flip its own lock back on.
+    if (body.salesEditEnabled !== undefined) {
+      if (!['operations', 'accounts', 'admin'].includes(authResult.user.role)) {
+        return Response.json({ error: 'Not allowed' }, { status: 403 })
+      }
+      const booking = await Booking.findOneAndUpdate(
+        scopeFilter(id, authResult.user),
+        { salesEditEnabled: Boolean(body.salesEditEnabled) },
+        { new: true }
+      )
+      if (!booking) {
+        return Response.json({ error: 'Booking not found' }, { status: 404 })
+      }
+      return Response.json({ salesEditEnabled: booking.salesEditEnabled })
+    }
+
     const update = {}
     if (body.pickupLocation !== undefined) update.pickupLocation = body.pickupLocation
     if (body.dropLocation !== undefined) update.dropLocation = body.dropLocation

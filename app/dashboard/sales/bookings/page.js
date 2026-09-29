@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, Loader2, Pencil, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -25,11 +26,15 @@ function formatDate(d) {
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-/** Read-only view for Sales — "what's the status of the clients I closed?"
- * Status here is purely informational (Processing until Operations has
- * confirmed hotel + transport and sent both vouchers) — Sales has no action
- * to take here, just visibility into their own closed bookings. */
+/** "Booking Closed" — Sales' own closed clients. The status column is purely
+ * informational (Processing until Operations has confirmed hotel + transport
+ * and sent both vouchers), but Edit is a real action: it reopens the same
+ * itinerary in the Builder. Operations and Accounts both read that itinerary
+ * live (hotel/vehicle confirmations, pricing) rather than a frozen copy of
+ * it, so a fix Sales makes here — a wrong room type, a date, a price — shows
+ * up for them immediately, without anyone re-entering anything. */
 export default function MyBookingsPage() {
+  const router = useRouter()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -51,8 +56,8 @@ export default function MyBookingsPage() {
       </Button>
 
       <PageHeader
-        title="My Bookings"
-        description="Clients you've closed, and where Operations stands on their trip."
+        title="Booking Closed"
+        description="Clients you've closed — edit here to fix a room, date or price; Operations and Accounts see it too."
       />
 
       <Card className="border-border/60 shadow-sm">
@@ -71,7 +76,28 @@ export default function MyBookingsPage() {
             ) : (
               bookings.map((b) => (
                 <div key={b._id} className="rounded-xl border p-4">
-                  <p className="font-semibold">{leadDisplayName(b.leadId)}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold">{leadDisplayName(b.leadId)}</p>
+                    {b.itineraryId && (
+                      b.salesEditEnabled ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 shrink-0 gap-1.5"
+                          onClick={() => router.push(`/dashboard/itinerary-builder?id=${b.itineraryId}`)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </Button>
+                      ) : (
+                        <span
+                          className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border/60 px-3 text-xs text-muted-foreground"
+                          title="Operations/Accounts has locked this booking from further edits"
+                        >
+                          <Lock className="h-3.5 w-3.5" /> Locked
+                        </span>
+                      )
+                    )}
+                  </div>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {formatDate(b.startDate)} → {formatDate(b.endDate)}
                   </p>
@@ -92,18 +118,19 @@ export default function MyBookingsPage() {
                   <TableHead>Arrival date</TableHead>
                   <TableHead>Departure date</TableHead>
                   <TableHead>Operations status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                       <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                     </TableCell>
                   </TableRow>
                 ) : bookings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                       No closed bookings yet.
                     </TableCell>
                   </TableRow>
@@ -120,6 +147,27 @@ export default function MyBookingsPage() {
                         >
                           {b.opsStatus === 'done' ? 'Done' : 'Processing'}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {b.itineraryId && (
+                          b.salesEditEnabled ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5"
+                              onClick={() => router.push(`/dashboard/itinerary-builder?id=${b.itineraryId}`)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" /> Edit
+                            </Button>
+                          ) : (
+                            <span
+                              className="flex w-fit items-center gap-1.5 rounded-md border border-border/60 px-3 py-1.5 text-xs text-muted-foreground"
+                              title="Operations/Accounts has locked this booking from further edits"
+                            >
+                              <Lock className="h-3.5 w-3.5" /> Locked
+                            </span>
+                          )
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

@@ -6,6 +6,7 @@ import {
   getItineraryFull,
   updateItinerary,
   deleteItinerary,
+  SalesEditLockedError,
 } from '@/services/itineraryService'
 
 export async function GET(request, { params }) {
@@ -52,7 +53,15 @@ export async function PUT(request, { params }) {
       return Response.json({ error: parsed.error }, { status: 400 })
     }
 
-    const result = await updateItinerary(id, authResult.user, parsed.data)
+    let result
+    try {
+      result = await updateItinerary(id, authResult.user, parsed.data)
+    } catch (e) {
+      if (e instanceof SalesEditLockedError) {
+        return Response.json({ error: e.message }, { status: 403 })
+      }
+      throw e
+    }
     if (!result) {
       return Response.json({ error: 'Itinerary not found' }, { status: 404 })
     }

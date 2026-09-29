@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -17,6 +17,8 @@ import {
   Mail,
   Copy,
   Upload,
+  Lock,
+  Unlock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -265,6 +267,10 @@ export default function BookingDetailPage() {
 
   const canEditOps = role === 'operations' || role === 'admin'
   const canPayAdvance = role === 'accounts' || role === 'admin'
+  // Whoever can act on this booking (Operations, Accounts, or the Owner) can
+  // also lock/unlock Sales' ability to edit its itinerary — Sales itself
+  // never gets this control.
+  const canToggleSalesEdit = ['operations', 'accounts', 'admin'].includes(role)
 
   function deriveDefaultPickup(b) {
     const vehicles = b?.itineraryId?.vehicles || []
@@ -277,6 +283,36 @@ export default function BookingDetailPage() {
     if (vehicles.length) return vehicles[vehicles.length - 1]?.toLocation || ''
     const transfers = b?.itineraryId?.transfers || []
     return transfers.length ? transfers[transfers.length - 1]?.to || '' : ''
+  }
+
+  const [togglingSalesEdit, setTogglingSalesEdit] = useState(false)
+  // Radix's Switch can fire onCheckedChange twice for one click (the second
+  // arrives before the disabled prop from setTogglingSalesEdit(true) has
+  // actually re-rendered) — a plain ref check here is synchronous, so it
+  // blocks the second call immediately, unlike state which updates on the
+  // next render. Without this a single click could PATCH twice and show the
+  // "blocked"/"unblocked" toast twice.
+  const togglingRef = useRef(false)
+  const toggleSalesEdit = async (enabled) => {
+    if (togglingRef.current) return
+    togglingRef.current = true
+    setTogglingSalesEdit(true)
+    try {
+      const res = await fetch(`/api/bookings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authH() },
+        body: JSON.stringify({ salesEditEnabled: enabled }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to save')
+      setBooking((b) => ({ ...b, salesEditEnabled: data.salesEditEnabled }))
+      toast.success(enabled ? 'Sales can edit this itinerary again' : 'Sales is now blocked from editing this itinerary')
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      togglingRef.current = false
+      setTogglingSalesEdit(false)
+    }
   }
 
   const savePickupDrop = async () => {
@@ -642,11 +678,33 @@ export default function BookingDetailPage() {
         <ArrowLeft className="h-4 w-4" /> Back to bookings
       </Button>
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{leadDisplayName(lead)}</h1>
-        <p className="text-sm text-muted-foreground">
-          {booking.bookingNumber} · {itinerary?.tripName || itinerary?.title || '—'}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{leadDisplayName(lead)}</h1>
+          <p className="text-sm text-muted-foreground">
+            {booking.bookingNumber} · {itinerary?.tripName || itinerary?.title || '—'}
+          </p>
+        </div>
+        {canToggleSalesEdit && (
+          <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+            {booking.salesEditEnabled === false ? (
+              <Lock className="h-4 w-4 shrink-0 text-destructive" />
+            ) : (
+              <Unlock className="h-4 w-4 shrink-0 text-success" />
+            )}
+            <div className="leading-tight">
+              <p className="text-sm font-medium">Sales can edit itinerary</p>
+              <p className="text-xs text-muted-foreground">
+                {booking.salesEditEnabled === false ? 'Off — locked after confirmation' : 'On — Sales can still make changes'}
+              </p>
+            </div>
+            <Switch
+              checked={booking.salesEditEnabled !== false}
+              disabled={togglingSalesEdit}
+              onCheckedChange={toggleSalesEdit}
+            />
+          </div>
+        )}
       </div>
 
       {/* Client Details */}

@@ -244,6 +244,11 @@ const bookingSchema = new mongoose.Schema(
       ref: 'Team',
     },
     notes: String,
+    // Operations/Accounts flip this off once they've confirmed hotels/vehicles
+    // against this booking's itinerary, so Sales editing it afterward (a
+    // room type, a date, a price) can't silently invalidate work already
+    // done. Defaults on — matches how it behaved before this toggle existed.
+    salesEditEnabled: { type: Boolean, default: true },
     /** Defaults from the itinerary's vehicles/transfers but editable by
      * Operations on the booking detail page — not always predictable. */
     pickupLocation: String,

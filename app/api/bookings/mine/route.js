@@ -110,6 +110,12 @@ export async function GET(request) {
         _id: b._id,
         bookingNumber: b.bookingNumber,
         leadId: b.leadId,
+        // So Sales can jump straight into the Itinerary Builder and edit the
+        // closed trip — changes there flow through live (hotel/vehicle
+        // confirmations, pricing) to what Operations and Accounts see, since
+        // both read the itinerary directly rather than a frozen copy.
+        itineraryId: b.itineraryId?._id || b.itineraryId || null,
+        salesEditEnabled: b.salesEditEnabled !== false,
         startDate: planRange?.start || b.startDate,
         endDate: planRange?.end || b.endDate,
         opsStatus: opsComplete ? 'done' : 'processing',
