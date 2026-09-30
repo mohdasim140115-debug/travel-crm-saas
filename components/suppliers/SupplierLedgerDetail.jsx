@@ -270,11 +270,21 @@ export default function SupplierLedgerDetail() {
             (() => {
               const charges = entries.filter((e) => e.type === 'charge')
               const payments = entries.filter((e) => e.type === 'payment')
+              // bookingId comes back *populated* ({_id, bookingNumber}), not a
+              // bare id — String() on that object always gives "[object
+              // Object]" on both sides, so this check silently matched every
+              // payment to every charge regardless of booking. Two different
+              // clients' bookings can end up with the identical hotelKey/
+              // vehicleKey (same master hotel/vehicle, same room-line index),
+              // so without this fix a payment could get attributed to the
+              // wrong client entirely — one looked paid up while the other
+              // looked like they still owed the money.
+              const bookingIdOf = (v) => String(v?._id || v || '')
               const linkedIds = new Set()
               const groups = charges.map((charge) => {
                 const linked = payments.filter((p) => {
                   if (linkedIds.has(String(p._id))) return false
-                  if (String(p.bookingId) !== String(charge.bookingId)) return false
+                  if (bookingIdOf(p.bookingId) !== bookingIdOf(charge.bookingId)) return false
                   if (charge.hotelKey) return p.hotelKey === charge.hotelKey
                   if (charge.vehicleKey) return p.vehicleKey === charge.vehicleKey
                   return false

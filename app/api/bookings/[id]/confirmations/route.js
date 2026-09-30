@@ -30,7 +30,28 @@ async function chargeSupplierForHotel({ teamId, userId, booking, item }) {
     type: 'charge',
   })
 
-  const delta = existingEntry ? item.negotiatedPrice - existingEntry.amount : item.negotiatedPrice
+  // Re-confirming under a *different* hotel name (a typo fixed, or Operations
+  // picks a different property for the same room line) resolves to a
+  // different Supplier — the charge must move its whole balance across, not
+  // just apply this save's price delta to the new one and abandon whatever
+  // it left behind on the old one (that old balance would then sit there
+  // forever with no ledger entry left to explain it).
+  const supplierChanged = existingEntry && String(existingEntry.supplierId) !== String(supplier._id)
+  const oldSupplierId = existingEntry?.supplierId
+  const previousAmount = existingEntry?.amount || 0
+  // A manual "Adjust amount" (e.g. a late discount) is recorded in
+  // `adjustments`, but re-confirming here used to blindly overwrite `amount`
+  // with the fresh negotiated price, silently discarding that discount even
+  // though the adjustment record itself stayed in the ledger (so the ledger
+  // looked like it had a discount that was actually no longer applied). Fold
+  // the net of any past adjustments back on top of the fresh price so they
+  // survive a reconfirm.
+  const netAdjustment = (existingEntry?.adjustments || []).reduce(
+    (sum, a) => sum + (a.direction === 'subtract' ? -a.amount : a.amount),
+    0
+  )
+  const nextAmount = existingEntry ? Math.max(0, item.negotiatedPrice + netAdjustment) : item.negotiatedPrice
+  const delta = existingEntry && !supplierChanged ? nextAmount - existingEntry.amount : nextAmount
   // The advance is almost always paid *before* the hotel is confirmed (that's
   // the whole point of the advance-before-confirm flow), so this charge entry
   // often doesn't exist yet when the advance is marked paid — seed its
@@ -38,7 +59,7 @@ async function chargeSupplierForHotel({ teamId, userId, booking, item }) {
   const advancePaidAmount = item.advancePaid ? Math.min(item.negotiatedPrice, item.advanceAmount || 0) : 0
 
   if (existingEntry) {
-    existingEntry.amount = item.negotiatedPrice
+    existingEntry.amount = nextAmount
     existingEntry.leadId = booking.leadId
     existingEntry.roomType = item.roomType
     existingEntry.roomCount = item.roomCount
@@ -84,7 +105,10 @@ async function chargeSupplierForHotel({ teamId, userId, booking, item }) {
     })
   }
 
-  if (delta) {
+  if (supplierChanged) {
+    await Supplier.updateOne({ _id: oldSupplierId }, { $inc: { balanceDue: -previousAmount } })
+    await Supplier.updateOne({ _id: supplier._id }, { $inc: { balanceDue: nextAmount } })
+  } else if (delta) {
     await Supplier.updateOne({ _id: supplier._id }, { $inc: { balanceDue: delta } })
   }
 
@@ -123,10 +147,26 @@ async function chargeSupplierForVehicle({ teamId, userId, booking, item, pax, ar
     type: 'charge',
   })
 
-  const delta = existingEntry ? item.price - existingEntry.amount : item.price
+  // Same reasoning as the hotel version above: if the vehicle number/driver
+  // entered this time resolves to a *different* Supplier than last time
+  // (a placeholder driver name replaced with the real registration number,
+  // a typo fixed), the charge's whole balance has to move with it — otherwise
+  // the old Supplier is left with a balance no ledger entry there explains,
+  // and the new one shows the ledger entry with the wrong (stale) balance.
+  const supplierChanged = existingEntry && String(existingEntry.supplierId) !== String(supplier._id)
+  const oldSupplierId = existingEntry?.supplierId
+  const previousAmount = existingEntry?.amount || 0
+  // Same as the hotel version — preserve a manual "Adjust amount" discount
+  // across a reconfirm instead of the fresh price silently wiping it out.
+  const netAdjustment = (existingEntry?.adjustments || []).reduce(
+    (sum, a) => sum + (a.direction === 'subtract' ? -a.amount : a.amount),
+    0
+  )
+  const nextAmount = existingEntry ? Math.max(0, item.price + netAdjustment) : item.price
+  const delta = existingEntry && !supplierChanged ? nextAmount - existingEntry.amount : nextAmount
 
   if (existingEntry) {
-    existingEntry.amount = item.price
+    existingEntry.amount = nextAmount
     existingEntry.description = description
     existingEntry.supplierId = supplier._id
     existingEntry.leadId = booking.leadId
@@ -160,7 +200,10 @@ async function chargeSupplierForVehicle({ teamId, userId, booking, item, pax, ar
     })
   }
 
-  if (delta) {
+  if (supplierChanged) {
+    await Supplier.updateOne({ _id: oldSupplierId }, { $inc: { balanceDue: -previousAmount } })
+    await Supplier.updateOne({ _id: supplier._id }, { $inc: { balanceDue: nextAmount } })
+  } else if (delta) {
     await Supplier.updateOne({ _id: supplier._id }, { $inc: { balanceDue: delta } })
   }
 
