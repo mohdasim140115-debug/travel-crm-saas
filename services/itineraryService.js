@@ -4,6 +4,7 @@ import ItineraryHotel from '@/models/ItineraryHotel'
 import ItineraryActivity from '@/models/ItineraryActivity'
 import Brand from '@/models/Brand'
 import Booking from '@/models/Booking'
+import { hotelSourceList, vehicleSourceList } from '@/lib/bookingConfirmations'
 import { tenantFilter, withTenantBody } from '@/lib/tenant'
 import { generateShareToken } from '@/utils/itinerary'
 import { canOnlyViewOwnLeads } from '@/lib/permissions'
@@ -316,7 +317,48 @@ export async function updateItinerary(id, authUser, body) {
   if (days !== undefined) await syncDays(id, authUser.teamId, days)
   if (hotels !== undefined) await syncTripHotels(id, authUser.teamId, hotels)
 
+  // Whoever edits the itinerary last wins: push the new quote straight into
+  // every booking built from it, so Operations' hotel/vehicle rates and
+  // Accounts' invoice total follow the Sales change without anyone retyping.
+  if (canOnlyViewOwnLeads(authUser.role)) await resyncLinkedBookings(id, authUser.teamId)
+
   return getItineraryFull(id, authUser)
+}
+
+/** Brings every booking built from this itinerary up to the itinerary's
+ * current quote. Anything whose quoted price changed gets its Operations rate
+ * reset to the new quote and goes back to unconfirmed, so Operations
+ * re-confirms it (which is what rewrites the supplier ledger). Accounts'
+ * invoice total follows immediately. */
+async function resyncLinkedBookings(itineraryId, teamId) {
+  const bookings = await Booking.find({ itineraryId, teamId })
+  if (!bookings.length) return
+  const itinerary = await Itinerary.findById(itineraryId).lean()
+  if (!itinerary) return
+  const freshHotels = new Map(hotelSourceList(itinerary).map((h) => [h.key, h]))
+  const freshVehicles = new Map(vehicleSourceList(itinerary).map((v) => [v.key, v]))
+  const total = itinerary.totalPrice || itinerary.totalCost || 0
+
+  for (const booking of bookings) {
+    booking.totalAmount = total
+    for (const c of booking.hotelConfirmations || []) {
+      const f = freshHotels.get(c.key)
+      if (!f || Number(f.quotedPrice || 0) === Number(c.quotedPrice || 0)) continue
+      c.quotedPrice = f.quotedPrice
+      c.roomPrice = f.quotedRoomPricePerNight ?? c.roomPrice
+      c.confirmed = false
+      c.confirmedAt = null
+    }
+    for (const c of booking.vehicleConfirmations || []) {
+      const f = freshVehicles.get(c.key)
+      if (!f || Number(f.quotedPrice || 0) === Number(c.quotedPrice || 0)) continue
+      c.quotedPrice = f.quotedPrice
+      c.price = f.quotedPrice
+      c.confirmed = false
+      c.confirmedAt = null
+    }
+    await booking.save()
+  }
 }
 
 export async function deleteItinerary(id, authUser) {
