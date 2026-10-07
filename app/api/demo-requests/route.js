@@ -58,17 +58,38 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = parsePaging(searchParams, { defaultLimit: 50 })
     const status = searchParams.get('status')?.trim()
+    const search = searchParams.get('search')?.trim()
+    const from = searchParams.get('from')?.trim()
+    const to = searchParams.get('to')?.trim()
 
     const filter = {}
     if (status && status !== 'all') filter.status = status
+    if (search) {
+      const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      filter.$or = [{ name: rx }, { email: rx }, { phone: rx }, { address: rx }]
+    }
+    if (from || to) {
+      filter.createdAt = {}
+      if (from) filter.createdAt.$gte = new Date(from)
+      if (to) filter.createdAt.$lte = new Date(new Date(to).setHours(23, 59, 59, 999))
+    }
 
-    const [requests, total] = await Promise.all([
+    // Headline counts for the top cards — always across every request, not
+    // just the current filter/page, so they don't move when you search.
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const [requests, total, totalAll, newThisMonth, contactedCount, pendingCount] = await Promise.all([
       DemoRequest.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       DemoRequest.countDocuments(filter),
+      DemoRequest.countDocuments({}),
+      DemoRequest.countDocuments({ createdAt: { $gte: monthStart } }),
+      DemoRequest.countDocuments({ status: 'contacted' }),
+      DemoRequest.countDocuments({ status: 'new' }),
     ])
 
     return Response.json({
       requests,
+      summary: { total: totalAll, newThisMonth, contacted: contactedCount, pending: pendingCount },
       pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) },
     })
   } catch (error) {

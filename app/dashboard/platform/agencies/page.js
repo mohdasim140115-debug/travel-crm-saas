@@ -82,8 +82,30 @@ function daysLeftOf(date) {
   return Math.ceil((new Date(date).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
 }
 
+// Deterministic gradient per name (by hash) so the same agency/owner always
+// gets the same tint across reloads, and different agencies don't all look
+// like the same blue circle.
+const AVATAR_PALETTE = [
+  'from-blue-500 to-indigo-600',
+  'from-pink-500 to-rose-600',
+  'from-emerald-500 to-teal-600',
+  'from-violet-500 to-purple-600',
+  'from-amber-500 to-orange-600',
+  'from-cyan-500 to-sky-600',
+  'from-fuchsia-500 to-pink-600',
+  'from-lime-500 to-green-600',
+]
+
+function autoTone(name) {
+  const str = String(name || '?')
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) | 0
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length]
+}
+
 function Avatar({ letter, tone, small }) {
   const ch = String(letter || '?').trim().charAt(0).toUpperCase() || '?'
+  tone = tone || autoTone(letter)
   return (
     <div
       className={`flex shrink-0 items-center justify-center bg-gradient-to-br ${tone} font-bold text-white ${
@@ -323,6 +345,80 @@ export default function AgenciesPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        {/* On a narrow phone the wide table only ever shows its first column
+         * (the avatar) before you scroll right — the name/status/everything
+         * else is off-screen. A stacked card per agency shows all of it at
+         * once instead, same pattern the rest of the app uses on mobile. */}
+        <div className="divide-y md:hidden">
+          {loading ? (
+            <p className="py-12 text-center text-muted-foreground">
+              <Loader2 className="inline h-6 w-6 animate-spin" />
+            </p>
+          ) : rows.length === 0 ? (
+            <p className="py-12 text-center text-muted-foreground">No agencies match these filters.</p>
+          ) : (
+            rows.map((a) => {
+              const days = daysLeftOf(a.subscriptionExpiresAt)
+              const expiringSoon = days !== null && days <= 7 && days >= 0
+              return (
+                <div key={String(a._id)} className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar letter={a.name} />
+                      <div className="min-w-0">
+                        <Link href={`/dashboard/platform/agencies/${a._id}`} className="block truncate font-semibold hover:underline">
+                          {a.name}
+                        </Link>
+                        <p className="truncate text-xs text-muted-foreground">{a.email || '—'}</p>
+                      </div>
+                    </div>
+                    {a.isActive === false ? (
+                      <StatusPill tone="red" label="Suspended" />
+                    ) : expiringSoon ? (
+                      <StatusPill tone="amber" label="Expiring Soon" />
+                    ) : (
+                      <StatusPill tone="green" label="Active" />
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2.5 rounded-lg bg-muted/30 p-2">
+                    <Avatar letter={a.owner?.name || '?'} small />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{a.owner?.name || '—'}</p>
+                      <p className="truncate text-xs text-muted-foreground">{a.owner?.email || ''}</p>
+                    </div>
+                  </div>
+
+                  <ExpiryCell days={days} />
+
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      Users <CountPill icon={Users} value={a.userCount} />
+                    </div>
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      Leads <CountPill icon={Users} value={a.leadCount} />
+                    </div>
+                    <div className="text-muted-foreground">
+                      Revenue <span className="font-medium text-foreground">{formatINR(a.revenue)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <CalendarDays className="h-3.5 w-3.5" /> {formatDate(a.createdAt)}
+                    </div>
+                  </div>
+
+                  <Button asChild className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:opacity-90">
+                    <Link href={`/dashboard/platform/agencies/${a._id}`}>
+                      Manage
+                      <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <div className="hidden md:block">
         <TableShell minWidth="62rem">
           <Table>
             <TableHeader>
@@ -359,7 +455,7 @@ export default function AgenciesPage() {
                     <TableRow key={String(a._id)}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar letter={a.name} tone="from-sky-500 to-indigo-600" />
+                          <Avatar letter={a.name} />
                           <div className="min-w-0">
                             <Link href={`/dashboard/platform/agencies/${a._id}`} className="block truncate font-semibold hover:underline">
                               {a.name}
@@ -370,7 +466,7 @@ export default function AgenciesPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
-                          <Avatar letter={a.owner?.name || '?'} tone="from-slate-400 to-slate-500" small />
+                          <Avatar letter={a.owner?.name || "?"} small />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">{a.owner?.name || '—'}</p>
                             <p className="truncate text-xs text-muted-foreground">{a.owner?.email || ''}</p>
@@ -427,6 +523,7 @@ export default function AgenciesPage() {
             </TableBody>
           </Table>
         </TableShell>
+        </div>
 
         <div className="flex flex-col gap-3 border-t px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <span className="text-muted-foreground">

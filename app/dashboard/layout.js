@@ -297,24 +297,39 @@ export default function DashboardLayout({ children }) {
   const sidebarContent = (
     <>
       <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className={`relative h-9 shrink-0 overflow-hidden ${showExpandedSidebar ? 'w-35' : 'w-9'}`}>
-            <Image
-              src="/logo1.png"
-              alt="Travel SaaS CRM"
-              fill
-              className={showExpandedSidebar ? 'object-contain object-left' : 'object-cover object-left'}
-              priority
-            />
-          </div>
-          {showExpandedSidebar && (
+        {/* Collapsed desktop sidebar (72px) can't fit the full logo next to
+         * the expand button — they overlapped and the button became
+         * unclickable. Collapsed state shows just the expand button,
+         * centered; the logo only needs to be visible once expanded. */}
+        {showExpandedSidebar ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="relative h-9 w-35 shrink-0 overflow-hidden">
+              <Image
+                src="/logo1.png"
+                alt="Travel SaaS CRM"
+                fill
+                className="object-contain object-left"
+                priority
+              />
+            </div>
             <div className="min-w-0">
               <p className="truncate text-xs capitalize text-sidebar-foreground/60">
                 {ROLE_LABELS[user.role] || user.role}
               </p>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          !isMobile && (
+            <button
+              type="button"
+              aria-label="Expand sidebar"
+              className="mx-auto rounded-lg p-2 text-sidebar-foreground/70 hover:bg-sidebar-accent"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+          )
+        )}
         <button
           type="button"
           aria-label="Close menu"
@@ -323,14 +338,14 @@ export default function DashboardLayout({ children }) {
         >
           <X className="h-5 w-5" />
         </button>
-        {!isMobile && (
+        {!isMobile && showExpandedSidebar && (
           <button
             type="button"
-            aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            aria-label="Collapse sidebar"
             className="rounded-lg p-2 text-sidebar-foreground/70 hover:bg-sidebar-accent"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            onClick={() => setSidebarOpen(false)}
           >
-            {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>

@@ -1,8 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -34,7 +33,6 @@ import {
   KeyRound,
   Loader2,
   Plus,
-  RotateCcw,
   Search,
   ShieldOff,
   Trash2,
@@ -44,8 +42,6 @@ import {
   Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageHeader } from '@/components/crm/PageHeader'
-import { TableShell } from '@/components/crm/TableShell'
 import { guardSuperadmin, saFetch, formatDate } from '@/lib/superadmin-client'
 import { startImpersonation } from '@/lib/impersonation'
 import { ROLE_LABELS } from '@/lib/permissions-client'
@@ -59,15 +55,15 @@ const ROLES = [
   { value: 'superadmin', label: 'Platform Super Admin' },
 ]
 
-// Deterministic pastel color per user (by name) so the same person always
-// gets the same avatar tint across reloads, without storing anything.
+// Deterministic gradient per user (by name) so the same person always gets
+// the same avatar tint across reloads, without storing anything.
 const AVATAR_PALETTE = [
-  'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-  'bg-pink-500/15 text-pink-600 dark:text-pink-400',
-  'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-  'bg-violet-500/15 text-violet-600 dark:text-violet-400',
-  'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
+  'from-blue-500 to-indigo-600',
+  'from-pink-500 to-rose-600',
+  'from-emerald-500 to-teal-600',
+  'from-violet-500 to-purple-600',
+  'from-amber-500 to-orange-600',
+  'from-cyan-500 to-sky-600',
 ]
 
 function avatarColor(name) {
@@ -75,6 +71,21 @@ function avatarColor(name) {
   let hash = 0
   for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) | 0
   return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length]
+}
+
+function StatusPill({ tone, label }) {
+  const box = {
+    green: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30',
+    amber: 'bg-amber-500/15 text-amber-500 border-amber-500/30',
+    red: 'bg-rose-500/15 text-rose-500 border-rose-500/30',
+  }
+  const dot = { green: 'bg-emerald-500', amber: 'bg-amber-500', red: 'bg-rose-500' }
+  return (
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${box[tone]}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dot[tone]}`} />
+      {label}
+    </span>
+  )
 }
 
 function initials(name) {
@@ -237,120 +248,131 @@ export default function PlatformUsersPage() {
   }
 
   const STAT_CARDS = [
-    { label: 'Total Users', value: stats.totalUsers, caption: 'Across all agencies', icon: UsersIcon, tint: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-    { label: 'Active Users', value: stats.activeUsers, caption: 'Currently active', icon: UserCheck, tint: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-    { label: 'Pending Approval', value: stats.pendingUsers, caption: 'Awaiting approval', icon: Clock, tint: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-    { label: 'Suspended', value: stats.suspendedUsers, caption: 'Temporarily blocked', icon: ShieldOff, tint: 'bg-destructive/10 text-destructive' },
+    { key: 'all', label: 'Total Users', value: stats.totalUsers, sub: 'Across all agencies', icon: UsersIcon, tile: 'from-blue-500 to-blue-600' },
+    { key: 'active', label: 'Active Users', value: stats.activeUsers, sub: 'Currently active', icon: UserCheck, tile: 'from-emerald-500 to-emerald-600' },
+    { key: 'pending', label: 'Pending Approval', value: stats.pendingUsers, sub: 'Awaiting approval', icon: Clock, tile: 'from-amber-500 to-orange-500' },
+    { key: 'suspended', label: 'Suspended', value: stats.suspendedUsers, sub: 'Temporarily blocked', icon: ShieldOff, tile: 'from-rose-500 to-red-600' },
   ]
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        description="Every account across every agency. Change roles, move users between agencies, reset passwords or suspend access."
-        actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New User
-          </Button>
-        }
-      />
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {STAT_CARDS.map((s) => (
-          <Card key={s.label} className="gap-0 border-border/60 py-4 shadow-sm">
-            <CardContent className="flex items-center gap-3 px-4">
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${s.tint}`}>
-                <s.icon className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-muted-foreground">{s.label}</p>
-                <p className="text-2xl font-bold leading-tight">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.caption}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-md">
+            <UsersIcon className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">All Users</h1>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {STAT_CARDS.map((s) => {
+            const Icon = s.icon
+            const active = s.key !== 'all' && statusFilter === s.key
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => {
+                  setPage(1)
+                  setStatusFilter(active ? 'all' : s.key)
+                }}
+                className={`flex items-center gap-3 rounded-xl border bg-card p-3 text-left shadow-sm transition hover:shadow-md ${active ? 'border-primary' : ''}`}
+              >
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${s.tile} text-white`}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-xs text-muted-foreground">{s.label}</p>
+                  <p className="text-xl font-bold tabular-nums">{s.value}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">{s.sub}</p>
+                </div>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      <Card className="py-4">
-        <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <div className="relative flex-1 sm:min-w-50">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Name, email or phone…"
-              value={search}
-              onChange={(e) => {
-                setPage(1)
-                setSearch(e.target.value)
-              }}
-            />
-          </div>
-          <Select
-            value={teamFilter}
-            onValueChange={(v) => {
+      <div className="flex flex-col gap-3 rounded-xl border bg-card p-3 shadow-sm lg:flex-row lg:flex-wrap lg:items-center">
+        <div className="relative flex-1 lg:min-w-50">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="h-10 pl-9"
+            placeholder="Name, email or phone…"
+            value={search}
+            onChange={(e) => {
               setPage(1)
-              setTeamFilter(v)
+              setSearch(e.target.value)
             }}
-          >
-            <SelectTrigger className="w-full sm:w-45">
-              <SelectValue placeholder="Agency" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All agencies</SelectItem>
-              {agencies.map((a) => (
-                <SelectItem key={String(a._id)} value={String(a._id)}>
-                  {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={roleFilter}
-            onValueChange={(v) => {
-              setPage(1)
-              setRoleFilter(v)
-            }}
-          >
-            <SelectTrigger className="w-full sm:w-42.5">
-              <SelectValue placeholder="Role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All roles</SelectItem>
-              {ROLES.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => {
-              setPage(1)
-              setStatusFilter(v)
-            }}
-          >
-            <SelectTrigger className="w-full sm:w-42.5">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="pending">Pending approval</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="suspended">Suspended</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={resetFilters}>
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset
-          </Button>
-        </CardContent>
-      </Card>
+          />
+        </div>
+        <Select
+          value={teamFilter}
+          onValueChange={(v) => {
+            setPage(1)
+            setTeamFilter(v)
+          }}
+        >
+          <SelectTrigger className="h-10 w-full lg:w-45">
+            <SelectValue placeholder="Agency" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All agencies</SelectItem>
+            {agencies.map((a) => (
+              <SelectItem key={String(a._id)} value={String(a._id)}>
+                {a.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={roleFilter}
+          onValueChange={(v) => {
+            setPage(1)
+            setRoleFilter(v)
+          }}
+        >
+          <SelectTrigger className="h-10 w-full lg:w-42.5">
+            <SelectValue placeholder="Role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All roles</SelectItem>
+            {ROLES.map((r) => (
+              <SelectItem key={r.value} value={r.value}>
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => {
+            setPage(1)
+            setStatusFilter(v)
+          }}
+        >
+          <SelectTrigger className="h-10 w-full lg:w-42.5">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="pending">Pending approval</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="suspended">Suspended</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          onClick={() => setCreateOpen(true)}
+          className="h-10 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:opacity-90 lg:ml-auto"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          New User
+        </Button>
+      </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <TableShell minWidth="80rem">
+      <div className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm">
+        <CardContent className="min-w-0 overflow-x-auto p-0">
+          <div style={{ minWidth: '80rem' }}>
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -393,7 +415,7 @@ export default function PlatformUsersPage() {
                       <TableCell className="px-4 py-5 align-middle">
                         <div className="flex items-center gap-3">
                           <span
-                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarColor(u.name)}`}
+                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white ${avatarColor(u.name)}`}
                           >
                             {initials(u.name)}
                           </span>
@@ -442,15 +464,15 @@ export default function PlatformUsersPage() {
                       <TableCell className="px-4 py-4 align-middle">
                         {u.approvalStatus === 'pending' ? (
                           <div className="space-y-1.5">
-                            <Badge className="bg-warning text-white">Pending approval</Badge>
+                            <StatusPill tone="amber" label="Pending approval" />
                             {u.requestedBy?.name && (
                               <p className="text-xs text-muted-foreground">by {u.requestedBy.name}</p>
                             )}
                           </div>
                         ) : u.isBlocked || !u.isActive ? (
-                          <Badge variant="destructive">Suspended</Badge>
+                          <StatusPill tone="red" label="Suspended" />
                         ) : (
-                          <Badge variant="secondary">Active</Badge>
+                          <StatusPill tone="green" label="Active" />
                         )}
                       </TableCell>
                       <TableCell className="px-4 py-4 align-middle text-sm">
@@ -539,10 +561,11 @@ export default function PlatformUsersPage() {
                 )}
               </TableBody>
             </Table>
-          </TableShell>
+          </div>
+        </CardContent>
 
-          {!loading && rows.length > 0 && (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-4 text-sm">
+        {!loading && rows.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm">
               <span className="text-muted-foreground">
                 Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
                 {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} users
@@ -587,9 +610,8 @@ export default function PlatformUsersPage() {
                 </div>
               )}
             </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
