@@ -38,9 +38,31 @@ export async function GET(request) {
       filter.$or = [{ name: rx }, { email: rx }, { phone: rx }]
     }
     if (plan && plan !== 'all') filter.plan = plan
+    const now = new Date()
+    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
     if (status === 'suspended') filter.isActive = false
     else if (status === 'active') filter.isActive = { $ne: false }
+    else if (status === 'expired') filter.subscriptionExpiresAt = { $lt: now }
+    else if (status === 'expiring') filter.subscriptionExpiresAt = { $gte: now, $lte: in7Days }
+    else if (status === 'running') {
+      filter.isActive = { $ne: false }
+      filter.subscriptionExpiresAt = { $gte: now }
+    }
     else if (status && status !== 'all') filter.subscriptionStatus = status
+
+    // Headline counts for the top cards — across every agency, so they don't
+    // change when a search or filter is applied.
+    const [suspendedCount, expiredCount, expiringCount, activeTeamIds] = await Promise.all([
+      Team.countDocuments({ isActive: false }),
+      Team.countDocuments({ subscriptionExpiresAt: { $lt: now } }),
+      Team.countDocuments({ subscriptionExpiresAt: { $gte: now, $lte: in7Days } }),
+      // Agencies whose plan is still running (not expired, not suspended).
+      Team.find({ isActive: { $ne: false }, subscriptionExpiresAt: { $gte: now } }).distinct('_id'),
+    ])
+    const totalCount = await Team.countDocuments({})
+    const activeUsersCount = activeTeamIds.length
+      ? await User.countDocuments({ teamId: { $in: activeTeamIds } })
+      : 0
 
     const [agencies, total, plans] = await Promise.all([
       Team.find(filter)
@@ -86,6 +108,14 @@ export async function GET(request) {
         }
       }),
       plans,
+      summary: {
+        total: totalCount,
+        suspended: suspendedCount,
+        expired: expiredCount,
+        expiring: expiringCount,
+        active: activeTeamIds.length,
+        activeUsers: activeUsersCount,
+      },
       pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) },
     })
   } catch (error) {
