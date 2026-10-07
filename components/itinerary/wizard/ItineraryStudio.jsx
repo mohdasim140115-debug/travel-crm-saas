@@ -132,13 +132,34 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
       if (current.length > targetCount) {
         return { ...prev, days: current.slice(0, targetCount) }
       }
+      // New days from bumping up the duration pick up where the plan already
+      // left off — one calendar day after the last day that has a date — the
+      // same way picking a date for Day 1 lets every later day inherit one
+      // (see the Schedule Date handler in StepPlan). Nobody wants to go back
+      // and manually date every day they just added.
+      let nextDate = null
+      for (let i = current.length - 1; i >= 0; i--) {
+        if (current[i]?.date) {
+          const d = new Date(String(current[i].date).slice(0, 10))
+          d.setDate(d.getDate() + (current.length - i))
+          nextDate = d
+          break
+        }
+      }
+      if (!nextDate && form.startDate) {
+        nextDate = new Date(String(form.startDate).slice(0, 10))
+        nextDate.setDate(nextDate.getDate() + current.length)
+      }
       const additions = []
       for (let i = current.length; i < targetCount; i++) {
+        const date = nextDate ? nextDate.toISOString().slice(0, 10) : undefined
+        if (nextDate) nextDate = new Date(nextDate.getTime() + 86400000)
         additions.push({
           ...DEFAULT_DAY,
           dayNumber: i + 1,
           sortOrder: i,
           title: i === 0 ? 'ARRIVAL' : `Day ${i + 1}`,
+          ...(date ? { date } : {}),
         })
       }
       return { ...prev, days: [...current, ...additions] }
@@ -267,6 +288,7 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
         const token = localStorage.getItem('token')
         const res = await fetch(`/api/itineraries/${id}/pdf?theme=${encodeURIComponent(theme)}`, {
           headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
         })
         if (!res.ok) throw new Error('PDF generation failed')
         const blob = await res.blob()

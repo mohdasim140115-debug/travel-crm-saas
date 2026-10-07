@@ -58,6 +58,10 @@ export async function GET(request, { params }) {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
+        // The browser must never serve a stale PDF for a just-saved edit —
+        // this always reflects the itinerary's current DB state, so caching
+        // it (even briefly) only risks showing an old version.
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
     })
   } catch (error) {

@@ -74,7 +74,7 @@ export function useItinerary(id) {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/itineraries/${id}`, { headers: getAuthHeaders() })
+      const res = await fetch(`/api/itineraries/${id}`, { headers: getAuthHeaders(), cache: 'no-store' })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to load itinerary')
       setData(json)

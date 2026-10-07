@@ -156,31 +156,53 @@ function VouchersPageContent() {
         })
         setItineraryVehicles(enrichedVehicles)
 
-        // The itinerary's hotels[] row doesn't carry room/CNB counts — but
-        // the confirmed nightStays breakdown (booking.hotelConfirmations)
-        // does, so pull those from there too, matched by name.
+        // Built straight from booking.hotelConfirmations — NOT the itinerary's
+        // hotels[] master list matched by name. That list's order is just
+        // whatever order the hotels were added in Settings/master data, not
+        // trip order, so a voucher built from it could print Hotel 3 before
+        // Hotel 2 even though the client actually stays at Hotel 2 first.
+        // hotelConfirmations is already in the trip's real chronological
+        // order (it's built from nightStays, day by day), so using it
+        // directly keeps the voucher in the same order as the Operations
+        // booking page.
         const confirmedHotels = bookingRes?.booking?.hotelConfirmations || []
+        const hotelMasterByName = new Map(
+          (d.hotels || []).map((h) => [String(h.name || '').trim().toLowerCase(), h])
+        )
         const initialDates = {}
-        const enrichedHotels = (d.hotels || []).map((h) => {
-          const match = confirmedHotels.find(
-            (c) => c.name && h.name && c.name.trim().toLowerCase() === h.name.trim().toLowerCase()
-          )
-          if (match?.checkIn || match?.checkOut) {
+        // Same hotel visited again later in the trip (a re-check-in) = ONE
+        // entry on the voucher: first visit's dates as check-in/out, the
+        // later visit as the re-check-in dates (same as the Operations card).
+        const collapsed = []
+        for (const c of confirmedHotels) {
+          const nameKey = String(c.name || '').trim().toLowerCase()
+          const primary = nameKey && collapsed.find((r) => String(r.name || '').trim().toLowerCase() === nameKey)
+          if (primary && !primary._secondMatch) {
+            primary._secondMatch = c
+          } else {
+            collapsed.push({ ...(hotelMasterByName.get(nameKey) || {}), ...c, _id: c.key })
+          }
+        }
+        const enrichedHotels = collapsed.map(({ _secondMatch, ...h }) => {
+          if (h.checkIn || h.checkOut) {
             initialDates[String(h._id)] = {
-              checkIn: match.checkIn ? new Date(match.checkIn).toISOString().slice(0, 10) : '',
-              checkOut: match.checkOut ? new Date(match.checkOut).toISOString().slice(0, 10) : '',
+              checkIn: h.checkIn ? new Date(h.checkIn).toISOString().slice(0, 10) : '',
+              checkOut: h.checkOut ? new Date(h.checkOut).toISOString().slice(0, 10) : '',
             }
           }
+          const returnCheckIn = _secondMatch?.checkIn || h.returnCheckIn
+          const returnCheckOut = _secondMatch?.checkOut || h.returnCheckOut
           return {
             ...h,
+            cost: h.negotiatedPrice ?? h.quotedPrice ?? h.cost,
             // Dates Operations confirmed on the booking are final — the voucher
             // shows them read-only.
-            datesLocked: Boolean(match?.checkIn || match?.checkOut),
-            returnCheckIn: match?.returnCheckIn ? new Date(match.returnCheckIn).toISOString().slice(0, 10) : '',
-            returnCheckOut: match?.returnCheckOut ? new Date(match.returnCheckOut).toISOString().slice(0, 10) : '',
-            roomCount: match?.roomCount ?? null,
-            extraBeds: match?.extraBeds ?? 0,
-            cnbCount: match?.cnbCount ?? 0,
+            datesLocked: Boolean(h.checkIn || h.checkOut),
+            returnCheckIn: returnCheckIn ? new Date(returnCheckIn).toISOString().slice(0, 10) : '',
+            returnCheckOut: returnCheckOut ? new Date(returnCheckOut).toISOString().slice(0, 10) : '',
+            roomCount: h.roomCount ?? null,
+            extraBeds: h.extraBeds ?? 0,
+            cnbCount: h.cnbCount ?? 0,
           }
         })
         setItineraryHotels(enrichedHotels)
@@ -366,6 +388,10 @@ function VouchersPageContent() {
       const token = localStorage.getItem('token')
       const res = await fetch(`/api/vouchers/${voucherId}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
+        // A regenerated voucher reuses the same id/URL — without this the
+        // browser can hand back an earlier download's cached PDF instead of
+        // the one that matches what was just saved.
+        cache: 'no-store',
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))

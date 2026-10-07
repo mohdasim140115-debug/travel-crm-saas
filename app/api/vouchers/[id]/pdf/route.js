@@ -117,6 +117,10 @@ export async function GET(request, { params }) {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
+        // Regenerating a voucher reuses the same URL (same voucher _id) —
+        // never let the browser serve an earlier download for it instead of
+        // the one that matches what was just saved.
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
     })
   } catch (error) {
