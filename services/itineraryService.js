@@ -319,8 +319,11 @@ export async function updateItinerary(id, authUser, body) {
 
   // Whoever edits the itinerary last wins: push the new quote straight into
   // every booking built from it, so Operations' hotel/vehicle rates and
-  // Accounts' invoice total follow the Sales change without anyone retyping.
-  if (canOnlyViewOwnLeads(authUser.role)) await resyncLinkedBookings(id, authUser.teamId)
+  // Accounts' invoice total follow the latest edit without anyone retyping —
+  // this used to only fire for Sales edits (canOnlyViewOwnLeads), so an
+  // Owner/Operations/Accounts edit to the same itinerary left the booking's
+  // totalAmount stuck at whatever it was quoted at originally.
+  await resyncLinkedBookings(id, authUser.teamId)
 
   return getItineraryFull(id, authUser)
 }
