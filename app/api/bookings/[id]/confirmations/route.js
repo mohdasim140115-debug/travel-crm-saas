@@ -494,6 +494,25 @@ export async function PATCH(request, { params }) {
         paymentPaidScreenshot: item.paymentPaidScreenshot,
       }
     })
+
+    // Operations editing a hotel/vehicle/activity price here used to only ever
+    // touch that one confirmation's own record — booking.totalAmount (what the
+    // Bookings list shows) was never recomputed, so it kept showing whatever
+    // the itinerary quoted at creation even after Operations renegotiated a
+    // rate. Re-sum all three lists (using whichever is more final: the
+    // negotiated/agreed price once Operations has entered one, the itinerary's
+    // original quote otherwise) every time any one of them is saved.
+    const freshHotels = computeHotelConfirmations(booking, booking.itineraryId, dayDates)
+    const freshVehicles = computeVehicleConfirmations(booking, booking.itineraryId, dayDates)
+    const freshActivities = computeActivityConfirmations(booking, booking.itineraryId, dayDates)
+    const hotelTotal = freshHotels.reduce((sum, h) => sum + Number(h.negotiatedPrice ?? h.quotedPrice ?? 0), 0)
+    const vehicleTotal = freshVehicles.reduce((sum, v) => sum + Number(v.price ?? v.quotedPrice ?? 0), 0)
+    const activityTotal = freshActivities.reduce(
+      (sum, a) => sum + Number(a.price != null ? a.price * (a.quantity || 1) : a.quotedPrice ?? 0),
+      0
+    )
+    booking.totalAmount = hotelTotal + vehicleTotal + activityTotal
+
     await booking.save()
 
     return Response.json({
