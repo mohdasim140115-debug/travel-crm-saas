@@ -59,8 +59,6 @@ export default function LeadDetailPage({ params }) {
   const { options: followUpTypes } = useMasters('follow_up_type', [
     'call', 'email', 'whatsapp', 'meeting', 'site_visit',
   ])
-  const { options: lostReasons } = useMasters('lost_reason', [])
-
   const token = () => localStorage.getItem('token')
 
   const loadAll = async () => {
@@ -315,29 +313,6 @@ export default function LeadDetailPage({ params }) {
             {lead.status === 'lost' && (
               <div className="mt-2 space-y-3 rounded-lg border border-red-200 bg-red-50/60 p-3">
                 <p className="text-sm font-semibold text-red-700">Lost lead follow-up</p>
-
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Lost reason</Label>
-                  <Select
-                    value={lostForm.lostReason}
-                    onValueChange={(v) => setLostForm((f) => ({ ...f, lostReason: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select reason" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {lostReasons.length === 0 ? (
-                        <SelectItem value="other">Other</SelectItem>
-                      ) : (
-                        lostReasons.map((r) => (
-                          <SelectItem key={r.key} value={r.key}>
-                            {r.label}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
 
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">

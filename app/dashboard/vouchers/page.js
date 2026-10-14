@@ -21,9 +21,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { toast } from 'sonner'
 import { mutateJson } from '@/lib/mutate'
-import { FileCheck, Hotel, Car, MapPin, BedDouble, Calendar, IndianRupee, Route, X } from 'lucide-react'
+import { formatInr } from '@/utils/crm'
+import { FileCheck, Hotel, Car, MapPin, BedDouble, Calendar, IndianRupee, Route, X, Search, ChevronsUpDown } from 'lucide-react'
 
 function formatDate(d) {
   if (!d) return null
@@ -32,6 +42,19 @@ function formatDate(d) {
   } catch {
     return null
   }
+}
+
+// Same meal plan codes Operations picks from on the booking's Confirm
+// Itinerary page — the voucher should print the same readable label they
+// saw there, not the raw code or some unrelated default.
+const MEAL_PLAN_LABELS = {
+  EP: 'EP — European Plan (room only)',
+  CP: 'CP — Continental Plan (+breakfast)',
+  MAP: 'MAP — Modified American Plan (+breakfast & dinner)',
+  AP: 'AP — American Plan (all meals)',
+}
+function mealPlanLabel(code) {
+  return MEAL_PLAN_LABELS[code] || code || ''
 }
 
 const VOUCHER_TYPES = [
@@ -56,6 +79,7 @@ function VouchersPageContent() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
+  const [bookingPickerOpen, setBookingPickerOpen] = useState(false)
   const [form, setForm] = useState({ bookingId: '', type: 'hotel', details: '' })
   const [itineraryHotels, setItineraryHotels] = useState([])
   const [itineraryVehicles, setItineraryVehicles] = useState([])
@@ -246,6 +270,7 @@ function VouchersPageContent() {
                   returnCheckIn: h.returnCheckIn || undefined,
                   returnCheckOut: h.returnCheckOut || undefined,
                   cost: h.cost,
+                  meals: mealPlanLabel(h.mealPlan),
                 }
               }),
             }),
@@ -308,6 +333,7 @@ function VouchersPageContent() {
           returnCheckIn: h.returnCheckIn || undefined,
           returnCheckOut: h.returnCheckOut || undefined,
           cost: h.cost,
+          meals: mealPlanLabel(h.mealPlan),
         }
       }),
     }
@@ -600,18 +626,68 @@ function VouchersPageContent() {
           <div className="flex-1 space-y-4 overflow-y-auto pr-1">
             <div>
               <Label>Booking</Label>
-              <Select value={form.bookingId} onValueChange={(v) => setForm({ ...form, bookingId: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select booking" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bookings.map((b) => (
-                    <SelectItem key={b._id} value={String(b._id)}>
-                      {b.bookingNumber} — {b.leadId?.firstName} {b.leadId?.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={bookingPickerOpen} onOpenChange={setBookingPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between rounded-xl font-normal"
+                  >
+                    {form.bookingId ? (
+                      (() => {
+                        const b = bookings.find((x) => String(x._id) === form.bookingId)
+                        if (!b) return 'Select booking'
+                        const name = b.itineraryId?.tripName || b.itineraryId?.title || '—'
+                        return (
+                          <span className="flex items-center gap-2 truncate">
+                            <span className="truncate">{name}</span>
+                            <span className="text-muted-foreground">— {b.leadId?.firstName} {b.leadId?.lastName}</span>
+                          </span>
+                        )
+                      })()
+                    ) : (
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <Search className="h-4 w-4 shrink-0" />
+                        Search bookings…
+                      </span>
+                    )}
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search by itinerary or guest name…" />
+                    <CommandList>
+                      <CommandEmpty>No bookings found.</CommandEmpty>
+                      <CommandGroup>
+                        {bookings.map((b) => {
+                          const name = b.itineraryId?.tripName || b.itineraryId?.title || '—'
+                          const guest = `${b.leadId?.firstName || ''} ${b.leadId?.lastName || ''}`.trim()
+                          return (
+                            <CommandItem
+                              key={b._id}
+                              value={`${name} ${guest} ${b.bookingNumber}`}
+                              onSelect={() => {
+                                setForm({ ...form, bookingId: String(b._id) })
+                                setBookingPickerOpen(false)
+                              }}
+                            >
+                              <span className="flex w-full items-center justify-between gap-3">
+                                <span className="truncate">
+                                  {name}
+                                  {guest && <span className="text-muted-foreground"> — {guest}</span>}
+                                </span>
+                                <span className="shrink-0 font-medium">{formatInr(b.totalAmount, b.currency)}</span>
+                              </span>
+                            </CommandItem>
+                          )
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>Voucher Type</Label>

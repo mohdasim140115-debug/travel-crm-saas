@@ -3,11 +3,11 @@
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Calendar, Plus, X, Loader2 } from 'lucide-react'
+import { Calendar, Plus, X, Loader2, Clock, CheckCircle2, PackageCheck, XCircle, MapPin, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -24,9 +24,17 @@ import { TableShell } from '@/components/crm/TableShell'
 
 function StatusBadge({ status, href }) {
   const confirmed = status === 'confirmed'
+  const Icon = confirmed ? CheckCircle2 : Clock
   return (
     <Link href={href}>
-      <Badge className={confirmed ? 'bg-success hover:bg-success' : 'bg-destructive hover:bg-destructive'}>
+      <Badge
+        className={
+          confirmed
+            ? '!rounded-full border-success/40 bg-success/15 text-success hover:bg-success/15'
+            : '!rounded-full border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/15'
+        }
+      >
+        <Icon className="h-3 w-3" />
         {confirmed ? 'Confirmed' : 'Pending'}
       </Badge>
     </Link>
@@ -131,11 +139,36 @@ function BookingsPageContent() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
   const [role, setRole] = useState(null)
   const [cancelTarget, setCancelTarget] = useState(null)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelRefundAmount, setCancelRefundAmount] = useState('')
   const [cancelling, setCancelling] = useState(false)
+  const [tabCounts, setTabCounts] = useState({ all: 0, pending: 0, confirmed: 0, completed: 0, cancelled: 0 })
+
+  // Counts for the tab tiles — fetched once, independent of which tab is
+  // currently selected (the main `bookings` list below is re-fetched
+  // *scoped* to the active tab, so it can never answer "how many are
+  // Cancelled" while you're sitting on the Pending tab).
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    const headers = { Authorization: `Bearer ${token}` }
+    const hasAnyPendingC = (b) => b.hotelStatus === 'pending' || b.vehicleStatus === 'pending' || b.activityStatus === 'pending'
+    Promise.all([
+      fetch(`/api/bookings?status=confirmed&limit=500`, { headers }).then((r) => r.json()).catch(() => null),
+      fetch(`/api/bookings?status=cancelled&limit=1`, { headers }).then((r) => r.json()).catch(() => null),
+    ]).then(([confirmedData, cancelledData]) => {
+      const confirmedBookings = confirmedData?.bookings || []
+      setTabCounts({
+        all: confirmedBookings.length,
+        pending: confirmedBookings.filter(hasAnyPendingC).length,
+        confirmed: confirmedBookings.filter((b) => !hasAnyPendingC(b)).length,
+        completed: confirmedBookings.filter((b) => b.endDate && new Date(b.endDate) < new Date()).length,
+        cancelled: cancelledData?.pagination?.total ?? 0,
+      })
+    })
+  }, [])
 
   useEffect(() => {
     try {
@@ -183,7 +216,23 @@ function BookingsPageContent() {
         : filter === 'confirmed'
           ? bookings.filter((b) => !hasAnyPending(b))
           : bookings
-  const displayedBookings = opsFilterDef ? tabFiltered.filter(opsFilterDef.match) : tabFiltered
+  const opsFiltered = opsFilterDef ? tabFiltered.filter(opsFilterDef.match) : tabFiltered
+  const searchQuery = search.trim().toLowerCase()
+  const displayedBookings = searchQuery
+    ? opsFiltered.filter((b) => {
+        const haystack = [
+          leadDisplayName(b.leadId),
+          b.assignedTo?.name,
+          b.itineraryId?.destination,
+          b.itineraryId?.tripName,
+          b.itineraryId?.title,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return haystack.includes(searchQuery)
+      })
+    : opsFiltered
 
   const confirmCancel = async () => {
     if (!cancelReason.trim()) {
@@ -245,7 +294,7 @@ function BookingsPageContent() {
         )}
       </div>
 
-      <div className="scroll-hover-thin flex flex-nowrap gap-2 overflow-x-auto pb-1">
+      <div className={role === 'accounts' ? 'scroll-hover-thin flex flex-nowrap gap-2 overflow-x-auto pb-1' : 'grid grid-cols-2 gap-3 sm:grid-cols-5'}>
         {role === 'accounts' ? (
           <>
             <Button
@@ -283,17 +332,44 @@ function BookingsPageContent() {
             </Button>
           </>
         ) : (
-          ['all', 'pending', 'confirmed', 'completed', 'cancelled'].map((s) => (
-            <Button
-              key={s}
-              size="sm"
-              variant={filter === s ? 'default' : 'outline'}
-              onClick={() => setFilter(s)}
-              className="shrink-0 capitalize"
-            >
-              {s}
-            </Button>
-          ))
+          ['all', 'pending', 'confirmed', 'completed', 'cancelled'].map((s) => {
+            // Same colour each status badge already uses elsewhere on this
+            // page (green=confirmed, red=pending/cancelled, blue=completed)
+            // — so the tab you're on and the badges in the table below read
+            // as the same language instead of every tab just being purple.
+            // Active = solid colour; inactive still gets a tinted version of
+            // the same colour (not plain/blank) so every tile reads as "this
+            // is what Pending/Confirmed/… looks like" even before picking it.
+            const TONE = {
+              all: { bg: '!bg-primary !border-primary' },
+              pending: { bg: '!bg-destructive !border-destructive' },
+              confirmed: { bg: '!bg-success !border-success' },
+              completed: { bg: '!bg-sky-600 !border-sky-600' },
+              cancelled: { bg: '!bg-zinc-600 !border-zinc-600' },
+            }
+            const ICON = { all: Calendar, pending: Clock, confirmed: CheckCircle2, completed: PackageCheck, cancelled: XCircle }
+            const Icon = ICON[s]
+            const active = filter === s
+            const tone = TONE[s]
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setFilter(s)}
+                className={`flex items-center gap-3 rounded-sm border p-3 text-left capitalize transition-transform hover:-translate-y-0.5 ${tone.bg} ${
+                  active ? 'shadow-lg ring-2 ring-white/60' : 'opacity-80'
+                }`}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/25 text-white">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xl font-bold leading-tight tabular-nums text-white">{tabCounts[s]}</p>
+                  <p className="truncate text-xs text-white/80">{s}</p>
+                </div>
+              </button>
+            )
+          })
         )}
       </div>
 
@@ -314,14 +390,16 @@ function BookingsPageContent() {
       )}
 
       <Card className="border-border/60 shadow-sm">
-        <CardHeader className="px-3 sm:px-6">
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            All bookings
-          </CardTitle>
-          <CardDescription>{displayedBookings.length} booking(s)</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 px-3 sm:px-6">
+        <CardContent className="space-y-4 px-3 pt-3 sm:px-6 sm:pt-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="h-10 pl-9"
+              placeholder="Search by lead name, booked by, or destination…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <div className="space-y-3 md:hidden">
             {loading ? (
               <p className="py-4 text-center text-sm text-muted-foreground">Loading…</p>
@@ -417,29 +495,29 @@ function BookingsPageContent() {
           <TableShell className="hidden md:block">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Lead</TableHead>
-                  <TableHead>Booked by</TableHead>
-                  <TableHead>Itinerary</TableHead>
-                  <TableHead>Dates</TableHead>
-                  <TableHead>Amount</TableHead>
+                <TableRow className="!border-b-2 border-primary/30 bg-primary/10 hover:bg-primary/10">
+                  <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Lead</TableHead>
+                  <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Booked by</TableHead>
+                  <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Itinerary</TableHead>
+                  <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Dates</TableHead>
+                  <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Amount</TableHead>
                   {role === 'accounts' ? (
                     <>
-                      <TableHead>Advance Invoice</TableHead>
-                      <TableHead>Hotel Advance Payment</TableHead>
-                      <TableHead>Activity Payment</TableHead>
+                      <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Advance Invoice</TableHead>
+                      <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Hotel Advance Payment</TableHead>
+                      <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Activity Payment</TableHead>
                     </>
                   ) : (
                     <>
-                      <TableHead>Hotel Status</TableHead>
-                      <TableHead>Transport Status</TableHead>
-                      <TableHead>Activity Status</TableHead>
-                      <TableHead>Action</TableHead>
+                      <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Hotel Status</TableHead>
+                      <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Transport Status</TableHead>
+                      <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Activity Status</TableHead>
+                      <TableHead className="py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Action</TableHead>
                     </>
                   )}
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className="[&_td]:py-4">
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={role === 'accounts' ? 8 : 9} className="py-8 text-center text-muted-foreground">
@@ -454,7 +532,7 @@ function BookingsPageContent() {
                   </TableRow>
                 ) : (
                   displayedBookings.map((b) => (
-                    <TableRow key={b._id}>
+                    <TableRow key={b._id} className="border-b border-border/40 hover:bg-primary/5">
                       <TableCell className="font-medium">
                         {leadHref(b) ? (
                           <Link href={leadHref(b)} className="text-primary hover:underline">
@@ -466,12 +544,18 @@ function BookingsPageContent() {
                       </TableCell>
                       <TableCell>{b.assignedTo?.name || '—'}</TableCell>
                       <TableCell>
-                        {b.itineraryId?.tripName || b.itineraryId?.title || '—'}
+                        <span className="inline-flex items-center gap-1 text-sm">
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                          {b.itineraryId?.destination || b.itineraryId?.tripName || b.itineraryId?.title || '—'}
+                        </span>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {b.startDate
-                          ? `${new Date(b.startDate).toLocaleDateString()} – ${new Date(b.endDate).toLocaleDateString()}`
-                          : '—'}
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {b.startDate
+                            ? `${new Date(b.startDate).toLocaleDateString()} – ${new Date(b.endDate).toLocaleDateString()}`
+                            : '—'}
+                        </span>
                       </TableCell>
                       <TableCell>{formatInr(b.totalAmount, b.currency)}</TableCell>
                       {role === 'accounts' ? (
@@ -503,14 +587,18 @@ function BookingsPageContent() {
                           </TableCell>
                           <TableCell>
                             {b.status === 'cancelled' ? (
-                              <Badge className="bg-destructive hover:bg-destructive">Cancelled</Badge>
+                              <Badge className="!rounded-full border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/15">
+                                <XCircle className="h-3 w-3" />
+                                Cancelled
+                              </Badge>
                             ) : (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-destructive hover:text-destructive"
+                                className="!rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 onClick={() => setCancelTarget(b)}
                               >
+                                <XCircle className="h-3.5 w-3.5" />
                                 Cancel
                               </Button>
                             )}

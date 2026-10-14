@@ -34,7 +34,7 @@ import { pickerToIso } from '@/lib/datetime'
 // A lead that's been won or shelved has no actionable follow-up — hide any
 // pending row still attached to it (a safety net for records that predate the
 // server-side cleanup, and for an instantly-correct list before the refetch).
-const RESTING_LEAD_STATUSES = new Set(['booked', 'completed'])
+const RESTING_LEAD_STATUSES = new Set(['booked', 'completed', 'lost'])
 
 const waLink = (phone) => `https://wa.me/${String(phone || '').replace(/\D/g, '')}`
 
@@ -262,8 +262,9 @@ function FollowUpsContent() {
     return name.includes(q) || fu.type?.toLowerCase().includes(q)
   }
   const visibleFollowUps = [...latestPerLead.values()].filter(
-    // A won/handed-off lead's pending follow-up is stale — never list it.
-    // Not Interested / Cancelled leads need no further action either.
+    // A won/handed-off/lost lead's pending follow-up is stale — never list
+    // it, even if the backend hasn't closed that FollowUp doc out yet. Not
+    // Interested / Cancelled leads need no further action either.
     (fu) =>
       !(
         fu.status === 'pending' &&

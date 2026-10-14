@@ -133,14 +133,16 @@ export async function PUT(request, { params }) {
 
     // Follow-ups are only actionable while a lead is still in play. Once the
     // status moves to a resting point, any still-pending follow-up on it must
-    // be closed so it stops showing on the Follow-ups list:
+    // be closed so it stops showing on the Follow-ups list / "Pending
+    // follow-up" filter:
     //  - back to "new"  → the lead is un-contacted again, the old plan is
     //    void → cancel.
-    //  - "booked" / "completed" → the lead is won and handed off → complete.
-    // "lost" is deliberately excluded: the lost-lead flow schedules its own
-    // fresh follow-up right after this, and /api/follow-ups supersedes the
-    // stale pending ones itself when it does.
-    if (statusChanged && ['new', 'booked', 'completed'].includes(lead.status)) {
+    //  - "booked" / "completed" / "lost" → the lead is no longer being
+    //    actively worked → complete. (The lead detail page's lost-flow can
+    //    still schedule a fresh follow-up right after this same request —
+    //    that happens via a separate /api/follow-ups call afterward, so it's
+    //    unaffected by closing out the stale one here first.)
+    if (statusChanged && ['new', 'booked', 'completed', 'lost'].includes(lead.status)) {
       await FollowUp.updateMany(
         { leadId: lead._id, status: 'pending' },
         {

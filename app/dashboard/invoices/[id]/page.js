@@ -100,7 +100,7 @@ export default function InvoiceClientLedgerPage() {
   const [compressingScreenshot, setCompressingScreenshot] = useState(false)
   const [creatingInvoice, setCreatingInvoice] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState(null)
-  const [editForm, setEditForm] = useState({ amount: '', dueDate: '', invoiceType: 'proforma', remark: '' })
+  const [editForm, setEditForm] = useState({ amount: '', amountPaid: '', dueDate: '', invoiceType: 'proforma', remark: '' })
   const [savingEdit, setSavingEdit] = useState(false)
   const [markPaidInvoice, setMarkPaidInvoice] = useState(null)
   const [markPaidScreenshot, setMarkPaidScreenshot] = useState('')
@@ -258,6 +258,7 @@ export default function InvoiceClientLedgerPage() {
     setEditingInvoice(inv)
     setEditForm({
       amount: String(inv.totalAmount || ''),
+      amountPaid: String(inv.amountPaid || 0),
       dueDate: inv.dueDate ? new Date(inv.dueDate).toISOString().slice(0, 10) : '',
       invoiceType: inv.invoiceType || 'proforma',
       remark: '',
@@ -268,6 +269,15 @@ export default function InvoiceClientLedgerPage() {
     const amount = Number(editForm.amount)
     if (!(amount > 0) || !editForm.dueDate) {
       toast.error('Enter a valid amount and due date')
+      return
+    }
+    const amountPaid = Number(editForm.amountPaid)
+    if (!(amountPaid >= 0)) {
+      toast.error('Enter a valid amount received')
+      return
+    }
+    if (amountPaid > amount) {
+      toast.error('Amount received cannot be more than the invoice total')
       return
     }
     if (!editForm.remark.trim()) {
@@ -282,6 +292,7 @@ export default function InvoiceClientLedgerPage() {
         body: JSON.stringify({
           edit: {
             amount,
+            amountPaid,
             dueDate: editForm.dueDate,
             invoiceType: editForm.invoiceType,
             remark: editForm.remark.trim(),
@@ -532,8 +543,8 @@ export default function InvoiceClientLedgerPage() {
                         {inv.editHistory.map((h, i) => (
                           <p key={i}>
                             {formatDate(h.editedAt)} — was {formatInr(h.previousTotalAmount)}, due{' '}
-                            {formatDate(h.previousDueDate)} ({invoiceTypeLabel(h.previousInvoiceType)}) ·{' '}
-                            {h.remark}
+                            {formatDate(h.previousDueDate)} ({invoiceTypeLabel(h.previousInvoiceType)}), received{' '}
+                            {formatInr(h.previousAmountPaid || 0)} · {h.remark}
                           </p>
                         ))}
                       </div>
@@ -957,6 +968,17 @@ export default function InvoiceClientLedgerPage() {
                 onChange={(e) => setEditForm((f) => ({ ...f, dueDate: e.target.value }))}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Amount received (₹) *</Label>
+              <Input
+                type="number"
+                value={editForm.amountPaid}
+                onChange={(e) => setEditForm((f) => ({ ...f, amountPaid: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Fix this if the payment received was entered too high or too low when the invoice was raised.
+              </p>
+            </div>
             <div className="space-y-2 rounded-md border bg-muted/30 p-3">
               <Label>Remark — why is this being edited? *</Label>
               <Input
@@ -965,7 +987,7 @@ export default function InvoiceClientLedgerPage() {
                 placeholder="e.g. Client name spelling was corrected, amount was entered wrong"
               />
               <p className="text-xs text-muted-foreground">
-                The previous amount/due date is kept as a visible log entry on this invoice for transparency.
+                The previous amount/due date/amount received is kept as a visible log entry on this invoice for transparency.
               </p>
             </div>
           </div>

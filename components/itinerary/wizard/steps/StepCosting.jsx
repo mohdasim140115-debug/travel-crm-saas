@@ -187,9 +187,17 @@ function NightStaysCard({ category, label, form, update, hotelMasters, extraBeds
   }
 
   const addRoomLine = (stay) => {
+    // A new room type for a stay that already has dates (or other room
+    // lines) should start with the same Nights the rest of the stay already
+    // uses, not blank — otherwise it reads "0" even though the stay's own
+    // check-in/check-out already imply a real night count.
+    const existingLines = getRoomLines(stay)
+    const fromDates = dayGap(stay.checkIn, stay.checkOut)
+    const fromLines = Math.max(0, ...existingLines.map((l) => Number(l.nights) || 0))
+    const nights = fromDates > 0 ? fromDates : fromLines > 0 ? fromLines : ''
     update({
       nightStays: (form.nightStays || []).map((s) =>
-        s === stay ? { ...s, roomLines: [...getRoomLines(s), createDefaultRoomLine()] } : s
+        s === stay ? { ...s, roomLines: [...existingLines, { ...createDefaultRoomLine(), nights }] } : s
       ),
     })
   }
@@ -896,10 +904,23 @@ export default function StepCosting({ form, update }) {
     let changed = false
     const next = nightStays.map((s) => {
       const catKey = s.category || ''
-      const nights = Math.max(1, ...getRoomLines(s).map((l) => Number(l.nights) || 0))
+      const roomLines = getRoomLines(s)
+      const nights = Math.max(1, ...roomLines.map((l) => Number(l.nights) || 0))
+      // A just-added room line (createDefaultRoomLine) starts with nights
+      // blank, so its Nights box still reads "0" even once this stay's dates
+      // are set/chained — back-fill it with the night count the dates were
+      // actually computed from, so the box always shows a real number.
+      const needsNightsFill = roomLines.some((l) => l.nights === '' || l.nights == null)
+      const filledRoomLines = needsNightsFill
+        ? roomLines.map((l) => (l.nights === '' || l.nights == null ? { ...l, nights } : l))
+        : roomLines
 
       if (s.datesOverridden && s.checkIn) {
         cursor[catKey] = s.checkOut || cursor[catKey] || tripAnchorDate
+        if (needsNightsFill) {
+          changed = true
+          return { ...s, roomLines: filledRoomLines }
+        }
         return s
       }
 
@@ -910,9 +931,9 @@ export default function StepCosting({ form, update }) {
       checkOutDate.setDate(checkOutDate.getDate() + nights)
       const checkOut = checkOutDate.toISOString().slice(0, 10)
       cursor[catKey] = checkOut
-      if (s.checkIn === checkIn && s.checkOut === checkOut) return s
+      if (s.checkIn === checkIn && s.checkOut === checkOut && !needsNightsFill) return s
       changed = true
-      return { ...s, checkIn, checkOut }
+      return { ...s, checkIn, checkOut, roomLines: filledRoomLines }
     })
     if (!changed) return
     update({ nightStays: next })

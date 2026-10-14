@@ -27,7 +27,7 @@ export async function PATCH(request, { params }) {
     const body = await request.json()
 
     if (body.edit) {
-      const { amount, dueDate, invoiceType, remark } = body.edit
+      const { amount, dueDate, invoiceType, remark, amountPaid } = body.edit
       const subtotal = Number(amount)
       if (!(subtotal > 0) || !dueDate) {
         return Response.json({ error: 'Enter a valid amount and due date' }, { status: 400 })
@@ -45,6 +45,7 @@ export async function PATCH(request, { params }) {
         previousTotalAmount: invoice.totalAmount,
         previousDueDate: invoice.dueDate,
         previousInvoiceType: invoice.invoiceType,
+        previousAmountPaid: invoice.amountPaid,
         remark: remark.trim(),
         editedBy: authResult.user.userId,
         editedAt: new Date(),
@@ -61,7 +62,13 @@ export async function PATCH(request, { params }) {
         invoice.items[0].rate = subtotal
         invoice.items[0].amount = subtotal
       }
-      const paid = Math.min(invoice.amountPaid || 0, totalAmount)
+      // A correction to the amount actually received (e.g. it was entered
+      // wrong when the invoice was raised) — Accounts can now fix this
+      // instead of it being stuck forever at whatever was first recorded.
+      const paid =
+        amountPaid !== undefined && amountPaid !== null && amountPaid !== ''
+          ? Math.min(Math.max(0, Number(amountPaid) || 0), totalAmount)
+          : Math.min(invoice.amountPaid || 0, totalAmount)
       invoice.amountPaid = paid
       invoice.paymentStatus = paid <= 0 ? 'unpaid' : paid >= totalAmount ? 'paid' : 'partial'
 

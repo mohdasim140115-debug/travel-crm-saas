@@ -379,6 +379,7 @@ function InvoicesPageInner() {
     })
   }, [invoices, bookings])
 
+
   const [clientFilter, setClientFilter] = useState('all')
   useEffect(() => {
     const f = searchParams.get('filter')

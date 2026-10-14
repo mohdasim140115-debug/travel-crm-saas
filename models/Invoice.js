@@ -42,6 +42,7 @@ const invoiceSchema = new mongoose.Schema(
         previousTotalAmount: Number,
         previousDueDate: Date,
         previousInvoiceType: String,
+        previousAmountPaid: Number,
         remark: String,
         editedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         editedAt: { type: Date, default: Date.now },

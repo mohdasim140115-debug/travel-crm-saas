@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Trash2, Edit2, Eye, Filter, ArrowUpDown, MessageSquare, Phone, Mail, Loader2, Users, Bell, Calendar as CalendarIcon, X } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, Eye, Filter, ArrowUpDown, MessageSquare, Phone, Mail, Loader2, Users, Bell, Calendar as CalendarIcon, X, User, Globe, UserCheck, Clock, UserX } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon'
+import { FacebookIcon, GoogleIcon, InstagramIcon } from '@/components/icons/SourceIcons'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import Link from 'next/link'
@@ -48,6 +49,45 @@ function FollowUpCell({ date }) {
   )
 }
 
+// Deterministic tint per name (by hash) so the same lead always gets the
+// same avatar colour across reloads — purely decorative, no data behind it.
+const AVATAR_TONES = [
+  { bg: 'bg-sky-500/15', fg: 'text-sky-600 dark:text-sky-400' },
+  { bg: 'bg-rose-500/15', fg: 'text-rose-600 dark:text-rose-400' },
+  { bg: 'bg-emerald-500/15', fg: 'text-emerald-600 dark:text-emerald-400' },
+  { bg: 'bg-violet-500/15', fg: 'text-violet-600 dark:text-violet-400' },
+  { bg: 'bg-amber-500/15', fg: 'text-amber-600 dark:text-amber-400' },
+]
+
+function LeadAvatar({ name }) {
+  const str = String(name || '?').trim()
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) | 0
+  const tone = AVATAR_TONES[Math.abs(hash) % AVATAR_TONES.length]
+  return (
+    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${tone.bg} ${tone.fg}`}>
+      <User className="h-4.5 w-4.5" />
+    </div>
+  )
+}
+
+// Maps a lead's source value to its brand mark — falls back to a plain globe
+// for sources that don't have one (direct, referral, website, …).
+function SourceBadge({ source }) {
+  const key = String(source || '').toLowerCase()
+  const label = labelize(source)
+  let iconEl = <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+  if (key.includes('facebook')) iconEl = <FacebookIcon className="h-4 w-4 shrink-0" />
+  else if (key.includes('google')) iconEl = <GoogleIcon className="h-4 w-4 shrink-0" />
+  else if (key.includes('instagram')) iconEl = <InstagramIcon className="h-4 w-4 shrink-0" />
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm">
+      {iconEl}
+      {label}
+    </span>
+  )
+}
+
 export default function LeadsPage() {
   return (
     <Suspense fallback={null}>
@@ -67,6 +107,12 @@ function LeadsContent() {
   const [filterFollowUp, setFilterFollowUp] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
   const [statusCounts, setStatusCounts] = useState({})
+  // Real counts for the header stat tiles — fetched alongside statusCounts,
+  // not computed from `leads` (that array is capped at 200 and already
+  // filtered, so it can't answer "how many total" honestly).
+  const [headerExtra, setHeaderExtra] = useState({ pending: 0, unassigned: 0 })
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 10
   const [showModal, setShowModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -84,6 +130,7 @@ function LeadsContent() {
   const [bookLead, setBookLead] = useState(null)
   const [bookOpen, setBookOpen] = useState(false)
   const [followUpDateOpen, setFollowUpDateOpen] = useState(false)
+  const [followUpDateError, setFollowUpDateError] = useState(false)
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -114,8 +161,6 @@ function LeadsContent() {
   const { options: sourceOptions } = useMasters('lead_source', [
     'direct', 'facebook_ads', 'instagram', 'website', 'referral', 'social', 'other',
   ])
-  const { options: lostReasons } = useMasters('lost_reason', [])
-
   const openPreview = (id) => {
     setPreviewId(id)
     setPreviewOpen(true)
@@ -158,6 +203,12 @@ function LeadsContent() {
       setCanAssign(false)
     }
   }, [])
+
+  // A new search/filter/sort invalidates whatever page you were on — back to
+  // page 1 so you're never staring at an "out of range" empty page.
+  useEffect(() => {
+    setPage(1)
+  }, [searchTerm, filterStatus, filterAssigned, filterFollowUp, sortBy])
 
   useEffect(() => {
     // Fetched unconditionally (not just for Owner/canAssign) — the "Create
@@ -246,6 +297,23 @@ function LeadsContent() {
         const data = await response.json()
         setStatusCounts(data.counts || {})
       }
+
+      // Two more real, team-scoped totals for the header tiles — "Pending
+      // follow-ups" and "Unassigned" both need the server's own total count
+      // (limit=1 just to avoid shipping the actual rows), not a client-side
+      // guess from the capped 200-row `leads` list.
+      const [pendingRes, unassignedRes] = await Promise.all([
+        fetch(`/api/leads?followUp=pending&limit=1`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/leads?assignedTo=unassigned&limit=1`, { headers: { Authorization: `Bearer ${token}` } }),
+      ])
+      const [pendingData, unassignedData] = await Promise.all([
+        pendingRes.ok ? pendingRes.json() : null,
+        unassignedRes.ok ? unassignedRes.json() : null,
+      ])
+      setHeaderExtra({
+        pending: pendingData?.pagination?.total ?? 0,
+        unassigned: unassignedData?.pagination?.total ?? 0,
+      })
     } catch (error) {
       console.error('Error fetching status counts:', error)
     }
@@ -270,6 +338,7 @@ function LeadsContent() {
       followUpDate: '',
       remark: '',
     })
+    setFollowUpDateError(false)
     setShowModal(true)
   }
 
@@ -290,15 +359,23 @@ function LeadsContent() {
       followUpDate: '',
       remark: '',
     })
+    setFollowUpDateError(false)
     setShowModal(true)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (needsGenericFollowUp && formData.followUpDate && new Date(formData.followUpDate).getTime() < Date.now() - 60000) {
-      toast.error('Follow-up time has already passed — check the time and AM/PM')
+    if (needsGenericFollowUp && !formData.followUpDate) {
+      toast.error(`Follow-up date is required for "${selectedStatusOption?.label}"`)
+      setFollowUpDateError(true)
       return
     }
+    if (needsGenericFollowUp && formData.followUpDate && new Date(formData.followUpDate).getTime() < Date.now() - 60000) {
+      toast.error('Follow-up time has already passed — check the time and AM/PM')
+      setFollowUpDateError(true)
+      return
+    }
+    setFollowUpDateError(false)
     setSubmitting(true)
     try {
       const token = localStorage.getItem('token')
@@ -494,20 +571,81 @@ function LeadsContent() {
       return new Date(b.createdAt) - new Date(a.createdAt) // newest
     })
 
+  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / PAGE_SIZE))
+  const pageSafe = Math.min(page, totalPages)
+  const pagedLeads = filteredLeads.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE)
+
+  const allLeadsCount = Object.entries(statusCounts).reduce(
+    (sum, [key, n]) => (isInactiveLeadStatus(key) || (!isOwner && CLOSED_STATUSES.includes(key)) ? sum : sum + n),
+    0
+  )
+  // "Not responding" is whatever the owner actually named that status in
+  // Settings → Lead Statuses (it isn't a fixed key) — matched by what the
+  // label says rather than hard-coding one tenant's spelling of it.
+  const notRespondingCount = statusOptions
+    .filter((s) => /no.?response|not.?answering|not.?picked|no.?answer/i.test(s.label))
+    .reduce((sum, s) => sum + (statusCounts[s.key] || 0), 0)
+
+  const STAT_TILES = [
+    ...(isOwner
+      ? [
+          { label: 'All leads', value: allLeadsCount, icon: Users, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-sky-500 !border-sky-500 shadow-lg shadow-sky-500/30' },
+          { label: 'Contacted', value: statusCounts.contacted || 0, icon: UserCheck, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-emerald-500 !border-emerald-500 shadow-lg shadow-emerald-500/30' },
+          { label: 'Pending follow-ups', value: headerExtra.pending, icon: Clock, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-amber-500 !border-amber-500 shadow-lg shadow-amber-500/30' },
+        ]
+      : []),
+    ...(notRespondingCount
+      ? [{ label: 'Not responding', value: notRespondingCount, icon: Bell, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-rose-500 !border-rose-500 shadow-lg shadow-rose-500/30' }]
+      : []),
+    ...(canAssign
+      ? [{ label: 'Unassigned', value: headerExtra.unassigned, icon: UserX, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-violet-500 !border-violet-500 shadow-lg shadow-violet-500/30' }]
+      : []),
+  ]
+
+  const resetFilters = () => {
+    setSearchTerm('')
+    setFilterStatus('all')
+    setFilterAssigned('all')
+    setFilterFollowUp('all')
+    setSortBy('newest')
+    setPage(1)
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <p className="min-w-0 truncate text-sm text-muted-foreground sm:text-base">
-          Manage and track all your travel leads
-        </p>
-        <Button onClick={handleAddClick} size="sm" className="shrink-0 gap-1.5">
+      {/* Real counts only — no invented trend percentages, since there's no
+       * period-over-period history computed anywhere for leads to honestly
+       * show a "+12%" badge. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {STAT_TILES.map((t) => {
+            const Icon = t.icon
+            return (
+              <Card
+                key={t.label}
+                className={`gap-0 !rounded-sm p-3 transition-transform duration-200 hover:-translate-y-0.5 ${t.cardTone}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${t.iconTone}`}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold leading-tight tabular-nums text-white">{t.value}</p>
+                    <p className="truncate text-xs text-white/80">{t.label}</p>
+                  </div>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+        <Button onClick={handleAddClick} className="h-10 shrink-0 gap-1.5 px-6 lg:w-auto">
           <Plus className="h-4 w-4" />
           Lead
         </Button>
       </div>
 
       {/* Filters */}
-      <Card className="p-3 sm:p-4">
+      <Card className="!mb-0 !rounded-t-2xl !rounded-b-none !shadow-none p-3 sm:p-4 hover:!transform-none">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full min-w-0 sm:w-auto sm:flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -617,11 +755,10 @@ function LeadsContent() {
             </SelectContent>
           </Select>
         </div>
-
       </Card>
 
       {/* Leads Table */}
-      <Card className="overflow-hidden">
+      <Card className="!mt-0 gap-0 overflow-hidden !rounded-t-none !rounded-b-2xl !shadow-none py-0 hover:!transform-none">
         {loading ? (
           <div className="p-8 text-center">
             <p className="text-muted-foreground">Loading leads...</p>
@@ -633,10 +770,11 @@ function LeadsContent() {
         ) : (
           <>
           <div className="space-y-3 p-4 md:hidden">
-            {filteredLeads.map((lead) => (
+            {pagedLeads.map((lead) => (
               <div key={lead._id} className="rounded-xl border bg-card p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <LeadAvatar name={`${lead.firstName} ${lead.lastName}`} />
                     <button
                       onClick={() => openPreview(lead._id)}
                       className="truncate text-left font-semibold text-accent-secondary hover:underline"
@@ -644,9 +782,19 @@ function LeadsContent() {
                       {lead.firstName} {lead.lastName}
                     </button>
                   </div>
-                  <Badge variant="outline" className="shrink-0 capitalize">
-                    {statusOptions.find((s) => s.key === lead.status)?.label || lead.status}
-                  </Badge>
+                  {(() => {
+                    const opt = statusOptions.find((s) => s.key === lead.status)
+                    const color = opt?.color || '#3b82f6'
+                    return (
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                        style={{ backgroundColor: `${color}22`, color }}
+                      >
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                        {opt?.label || labelize(lead.status)}
+                      </span>
+                    )
+                  })()}
                 </div>
                 <dl className="mt-3 space-y-1.5 border-t pt-3 text-sm">
                   <div className="flex items-center gap-2">
@@ -666,7 +814,12 @@ function LeadsContent() {
                       <Bell className="h-3.5 w-3.5" /> Follow-up
                     </dt>
                     <dd className="min-w-0">
-                      {lead.nextFollowUpDate ? <FollowUpCell date={lead.nextFollowUpDate} /> : <span className="text-muted-foreground">Not set</span>}
+                      {statusOptions.find((s) => s.key === lead.status)?.metadata?.requiresFollowUp &&
+                      lead.nextFollowUpDate ? (
+                        <FollowUpCell date={lead.nextFollowUpDate} />
+                      ) : (
+                        <span className="text-muted-foreground">Not set</span>
+                      )}
                     </dd>
                   </div>
                 </dl>
@@ -745,9 +898,8 @@ function LeadsContent() {
           <TableShell className="hidden md:block">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border bg-secondary/50">
+                <tr className="border-b-2 border-primary/40 bg-primary/25">
                   <th className="text-left p-4 font-semibold">Name</th>
-                  <th className="text-left p-4 font-semibold">Email</th>
                   <th className="text-left p-4 font-semibold">Phone</th>
                   <th className="text-left p-4 font-semibold">Status</th>
                   <th className="text-left p-4 font-semibold">Source</th>
@@ -757,36 +909,47 @@ function LeadsContent() {
                 </tr>
               </thead>
               <tbody>
-                {filteredLeads.map((lead) => (
+                {pagedLeads.map((lead) => (
                   <tr key={lead._id} className="border-b border-border hover:bg-secondary/30 transition-colors">
                     <td className="p-4">
-                      <button
-                        onClick={() => openPreview(lead._id)}
-                        className="font-medium text-accent-secondary hover:underline"
-                        title="Quick preview"
-                      >
-                        {lead.firstName} {lead.lastName}
-                      </button>
+                      <div className="flex items-center gap-2.5">
+                        <LeadAvatar name={`${lead.firstName} ${lead.lastName}`} />
+                        <div className="min-w-0">
+                          <button
+                            onClick={() => openPreview(lead._id)}
+                            className="block text-left font-medium text-accent-secondary hover:underline"
+                            title="Quick preview"
+                          >
+                            {lead.firstName} {lead.lastName}
+                          </button>
+                          <p className="text-xs text-muted-foreground">{displayEmail(lead.email) || '—'}</p>
+                        </div>
+                      </div>
                     </td>
-                    <td className="p-4">{displayEmail(lead.email) || '—'}</td>
                     <td className="p-4">{lead.phone || '-'}</td>
                     <td className="p-4">
                       {(() => {
                         const opt = statusOptions.find((s) => s.key === lead.status)
                         const color = opt?.color || '#3b82f6'
                         return (
-                          <span
-                            className="rounded-full px-3 py-1 text-xs font-medium"
-                            style={{ backgroundColor: `${color}22`, color }}
-                          >
+                          <span className="inline-flex items-center gap-1.5 text-sm font-medium" style={{ color }}>
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                             {opt?.label || labelize(lead.status)}
                           </span>
                         )
                       })()}
                     </td>
-                    <td className="p-4">{labelize(lead.source)}</td>
                     <td className="p-4">
-                      <FollowUpCell date={lead.nextFollowUpDate} />
+                      <SourceBadge source={lead.source} />
+                    </td>
+                    <td className="p-4">
+                      <FollowUpCell
+                        date={
+                          statusOptions.find((s) => s.key === lead.status)?.metadata?.requiresFollowUp
+                            ? lead.nextFollowUpDate
+                            : null
+                        }
+                      />
                     </td>
                     {canAssign && (
                       <td className="p-4">
@@ -885,6 +1048,53 @@ function LeadsContent() {
               </tbody>
             </table>
           </TableShell>
+
+          {filteredLeads.length > 0 && (
+            <div className="flex flex-col items-center justify-between gap-3 border-t p-4 text-sm sm:flex-row">
+              <span className="text-muted-foreground">
+                Showing {(pageSafe - 1) * PAGE_SIZE + 1} to {Math.min(pageSafe * PAGE_SIZE, filteredLeads.length)} of{' '}
+                {filteredLeads.length} leads
+              </span>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="outline" className="h-8 w-8 p-0" disabled={pageSafe <= 1} onClick={() => setPage(pageSafe - 1)}>
+                  ‹
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - pageSafe) <= 1)
+                  .reduce((acc, p, i, arr) => {
+                    if (i > 0 && p - arr[i - 1] > 1) acc.push('…')
+                    acc.push(p)
+                    return acc
+                  }, [])
+                  .map((p, i) =>
+                    p === '…' ? (
+                      <span key={`e${i}`} className="px-1 text-muted-foreground">
+                        …
+                      </span>
+                    ) : (
+                      <Button
+                        key={p}
+                        size="sm"
+                        variant={p === pageSafe ? 'default' : 'outline'}
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  disabled={pageSafe >= totalPages}
+                  onClick={() => setPage(pageSafe + 1)}
+                >
+                  ›
+                </Button>
+              </div>
+            </div>
+          )}
           </>
         )}
       </Card>
@@ -1000,15 +1210,27 @@ function LeadsContent() {
               {/* Generic follow-up date — appears for any status the owner
                   flagged "Requires follow-up" in Settings → Lead Statuses. */}
               {needsGenericFollowUp && (
-                <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
-                  <label className="block text-sm font-medium">
+                <div
+                  className={`space-y-2 rounded-lg border p-3 ${
+                    followUpDateError && !formData.followUpDate
+                      ? 'border-destructive bg-destructive/5'
+                      : 'border-primary/30 bg-primary/5'
+                  }`}
+                >
+                  <label
+                    className={`block text-sm font-medium ${
+                      followUpDateError && !formData.followUpDate ? 'text-destructive' : ''
+                    }`}
+                  >
                     Follow-up date <span className="text-muted-foreground font-normal">— required for “{selectedStatusOption?.label}”</span>
                   </label>
                   <Popover open={followUpDateOpen} onOpenChange={setFollowUpDateOpen}>
                     <PopoverTrigger asChild>
                       <button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                        className={`flex w-full items-center gap-2 rounded-md border bg-background px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground ${
+                          followUpDateError && !formData.followUpDate ? 'border-destructive' : 'border-input'
+                        }`}
                       >
                         <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                         {formData.followUpDate
@@ -1067,34 +1289,6 @@ function LeadsContent() {
                 </div>
               )}
 
-              {/* Lost follow-up fields — appear right below status when Lost */}
-              {formData.status === 'lost' && (
-                <div className="space-y-3 rounded-lg border border-red-200 bg-red-50/60 p-3">
-                  <p className="text-sm font-semibold text-red-700">Lost lead follow-up</p>
-
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">Lost reason</label>
-                    <Select
-                      value={formData.lostReason || 'none'}
-                      onValueChange={(v) =>
-                        setFormData({ ...formData, lostReason: v === 'none' ? '' : v })
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Select reason</SelectItem>
-                        {lostReasons.map((r) => (
-                          <SelectItem key={r.key} value={r.key}>
-                            {r.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
 
               <div>
                 <label className="block text-sm font-medium mb-1">Source</label>

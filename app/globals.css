@@ -3,6 +3,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Every clickable button/card across the app should show a pointer
+   cursor, not the browser's default — covers tab tiles, stat cards,
+   and any other <button>-based clickable surface site-wide. */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']) {
+  cursor: pointer;
+}
+
 :root {
   /* radius is theme-independent */
   --radius: 1rem;

@@ -5,8 +5,6 @@ import Image from 'next/image'
 import { MapPin, Search, Star, Check, Loader2, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { BUDGET_TIERS, budgetTierLabel } from '@/modules/itinerary/studio'
@@ -190,35 +188,6 @@ export default function StepHotels({ form, update }) {
           <CardTitle>Select hotels</CardTitle>
           <CardDescription>Choose properties from your master hotel repository</CardDescription>
         </CardHeader>
-        <CardContent className="px-3 sm:px-6">
-          <div className="flex items-center justify-between rounded-lg border border-dashed p-3">
-            <div>
-              <Label className="text-sm font-medium">
-                Multiple budget options ({budgetTierLabel('low', form.budgetTierLabels)} /{' '}
-                {budgetTierLabel('high', form.budgetTierLabels)})
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {(form.packageCategories || []).length === 2 ? (
-                  <>
-                    Set automatically since two Package categories are picked in Details — a{' '}
-                    {budgetTierLabel('low', form.budgetTierLabels)} option and a{' '}
-                    {budgetTierLabel('high', form.budgetTierLabels)} option, each with its own
-                    night stays, price, and section in the PDF.
-                  </>
-                ) : (
-                  <>
-                    Turn on to build two separate hotel picks — a Low Budget option and a High
-                    Budget option — each with its own night stays, price, and section in the PDF.
-                  </>
-                )}
-              </p>
-            </div>
-            <Switch
-              checked={Boolean(form.budgetTiers)}
-              onCheckedChange={(checked) => update({ budgetTiers: checked })}
-            />
-          </div>
-        </CardContent>
       </Card>
 
       {form.budgetTiers ? (
