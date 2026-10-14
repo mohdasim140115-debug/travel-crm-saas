@@ -333,6 +333,46 @@ export function studioFormToPayload(form) {
   }
 }
 
+/** See the comment at its call site in itineraryToStudioForm — brings the
+ * Hotels step's "selected" list back in sync with what the night stays
+ * actually reference, instead of trusting a `hotels` list that may have
+ * fallen behind. */
+function reconcileHotelsWithNightStays(savedHotels, nightStays) {
+  const saved = savedHotels?.length ? savedHotels : []
+  const stays = nightStays || []
+  if (!stays.length) return saved
+
+  const byIdOrName = (entry, id, name) =>
+    (id && entry.id === id) || (!entry.id && name && entry.name === name)
+
+  const kept = saved.filter((entry) =>
+    stays.some((s) => byIdOrName(entry, s.hotelId, s.hotelName) && (entry.category || undefined) === (s.category || undefined))
+  )
+
+  const missing = []
+  for (const s of stays) {
+    if (!s.hotelId && !s.hotelName) continue
+    const already =
+      kept.some((entry) => byIdOrName(entry, s.hotelId, s.hotelName) && (entry.category || undefined) === (s.category || undefined)) ||
+      missing.some((entry) => byIdOrName(entry, s.hotelId, s.hotelName) && (entry.category || undefined) === (s.category || undefined))
+    if (already) continue
+    missing.push({
+      id: s.hotelId || undefined,
+      name: s.hotelName || '',
+      location: s.location || '',
+      stars: 3,
+      images: [],
+      amenities: [],
+      roomType: '',
+      cost: 0,
+      currency: 'INR',
+      ...(s.category ? { category: s.category } : {}),
+    })
+  }
+
+  return [...kept, ...missing]
+}
+
 export function itineraryToStudioForm(data) {
   if (!data?.itinerary) return { ...DEFAULT_STUDIO_FORM }
   const it = data.itinerary
@@ -387,7 +427,17 @@ export function itineraryToStudioForm(data) {
     nightStays: it.nightStays || [],
     activities: it.activities || [],
     extraCharges: it.extraCharges || [],
-    hotels: it.hotels?.length ? it.hotels : [],
+    // `hotels` is just the picker's own "what's checked" list — the night
+    // stays are the real source of truth for which hotels the trip actually
+    // uses. The two can drift apart (a stay added/re-pointed some other way
+    // than the picker, an older itinerary saved before this list was kept in
+    // sync), and when they do, re-opening the Hotels step showed whatever
+    // stale 2-3 hotels happened to be in the picker's own list — not the 4
+    // the itinerary (and its PDF) actually has. Reconcile by keeping every
+    // saved entry that still matches a real stay, and synthesizing one for
+    // any stay whose hotel isn't represented at all, so every hotel actually
+    // in use always shows as selected.
+    hotels: reconcileHotelsWithNightStays(it.hotels, it.nightStays),
     budgetTiers: Boolean(it.budgetTiers),
     inclusions: it.inclusions?.length ? it.inclusions : DEFAULT_STUDIO_FORM.inclusions,
     exclusions: it.exclusions?.length ? it.exclusions : DEFAULT_STUDIO_FORM.exclusions,
