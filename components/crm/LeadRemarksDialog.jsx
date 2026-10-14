@@ -16,7 +16,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarPicker } from '@/components/ui/calendar'
-import { TimeSelect } from '@/components/ui/time-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Calendar, MessageSquare, Send } from 'lucide-react'
 import { format } from 'date-fns'
@@ -83,9 +82,13 @@ export function LeadRemarksDialog({ lead, open, onOpenChange, onSaved }) {
       toast.error('Follow-up date is required')
       return
     }
-    if (needsFollowUp && new Date(followUpDate).getTime() < Date.now() - 60000) {
-      toast.error('Follow-up time has already passed — check the time and AM/PM')
-      return
+    if (needsFollowUp && followUpDate) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (new Date(followUpDate) < today) {
+        toast.error('Follow-up date has already passed')
+        return
+      }
     }
     setSaving(true)
     const token = localStorage.getItem('token')
@@ -178,7 +181,7 @@ export function LeadRemarksDialog({ lead, open, onOpenChange, onSaved }) {
           {needsFollowUp && (
             <div className="space-y-1 rounded-lg border border-primary/30 bg-primary/5 p-3">
               <Label className="text-xs text-muted-foreground">
-                Follow-up date &amp; time <span className="text-destructive">*</span>{' '}
+                Follow-up date <span className="text-destructive">*</span>{' '}
                 <span className="font-normal">— required for "{selectedStatusOption?.label}"</span>
               </Label>
               <Popover open={dateOpen} onOpenChange={setDateOpen}>
@@ -188,9 +191,7 @@ export function LeadRemarksDialog({ lead, open, onOpenChange, onSaved }) {
                     className="flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
                   >
                     <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    {followUpDate
-                      ? format(new Date(followUpDate), 'dd MMM yyyy, hh:mm a')
-                      : 'Select date & time'}
+                    {followUpDate ? format(new Date(followUpDate), 'dd MMM yyyy') : 'Select date'}
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -199,30 +200,13 @@ export function LeadRemarksDialog({ lead, open, onOpenChange, onSaved }) {
                     selected={followUpDate ? new Date(followUpDate) : undefined}
                     onSelect={(date) => {
                       if (!date) return
-                      // Keep whatever time was already set (defaulting to
-                      // now for a first pick) and close right away — the
-                      // time itself is adjusted separately below, not here.
-                      const prev = followUpDate ? new Date(followUpDate) : new Date()
-                      date.setHours(prev.getHours(), prev.getMinutes())
-                      setFollowUpDate(format(date, "yyyy-MM-dd'T'HH:mm"))
+                      setFollowUpDate(format(date, "yyyy-MM-dd'T'09:00"))
                       setDateOpen(false)
                     }}
                     autoFocus
                   />
                 </PopoverContent>
               </Popover>
-              <div className="flex items-center gap-2">
-                <Label className="shrink-0 text-xs text-muted-foreground">Time</Label>
-                <TimeSelect
-                  value={followUpDate ? followUpDate.slice(11, 16) : ''}
-                  onChange={(timeStr) => {
-                    const [hh, mm] = timeStr.split(':').map(Number)
-                    const base = followUpDate ? new Date(followUpDate) : new Date()
-                    base.setHours(hh, mm)
-                    setFollowUpDate(format(base, "yyyy-MM-dd'T'HH:mm"))
-                  }}
-                />
-              </div>
             </div>
           )}
 

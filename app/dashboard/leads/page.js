@@ -597,7 +597,7 @@ function LeadsContent() {
           { label: 'Pending follow-ups', value: headerExtra.pending, icon: Clock, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-amber-500 !border-amber-500 shadow-lg shadow-amber-500/30' },
         ]
       : []),
-    ...(notRespondingCount
+    ...(isOwner && notRespondingCount
       ? [{ label: 'Not responding', value: notRespondingCount, icon: Bell, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-rose-500 !border-rose-500 shadow-lg shadow-rose-500/30' }]
       : []),
     ...(canAssign
