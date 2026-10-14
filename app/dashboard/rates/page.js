@@ -11,8 +11,8 @@ import { VehicleManager } from '@/components/settings/VehicleManager'
 const STAFF_ROLES = ['agent', 'manager', 'operations', 'accounts']
 
 /** Hotel and Vehicle Management for Sales, Operations and Accounts — they can
- * look up hotels, room rates and vehicle route fares and add new ones, but
- * only the Owner (in Settings) can edit or delete existing entries. */
+ * look up hotels, room rates and vehicle route fares, add new ones, and edit
+ * existing entries; only the Owner (in Settings) can delete them. */
 export default function RatesPage() {
   const router = useRouter()
   const [ready, setReady] = useState(false)
@@ -53,7 +53,7 @@ export default function RatesPage() {
         >
           <Car className="h-4 w-4" /> Vehicles
         </Button>
-        <span className="self-center text-xs text-muted-foreground">You can add new ones; only the Owner can edit or delete.</span>
+        <span className="self-center text-xs text-muted-foreground">You can add and edit; only the Owner can delete.</span>
       </div>
       <Card className="p-3 max-sm:-mx-2 sm:p-5">{tab === 'hotels' ? <HotelManager readOnly /> : <VehicleManager readOnly />}</Card>
     </div>

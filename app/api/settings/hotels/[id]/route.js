@@ -5,24 +5,31 @@ import { recordAudit } from '@/lib/audit'
 import mongoose from 'mongoose'
 
 const OWNER_ROLES = ['admin', 'superadmin']
+// Sales/Operations/Accounts can now edit an existing hotel's details (not
+// just add new ones) — archive/restore/toggle-active and delete stay
+// Owner-only since those are destructive/visibility-wide actions.
+const EDIT_ROLES = [...OWNER_ROLES, 'agent', 'manager', 'operations', 'accounts']
 
 function scope(user, id) {
   return { _id: id, teamId: new mongoose.Types.ObjectId(String(user.teamId)) }
 }
 
-async function authOwner(request) {
+async function authWithRoles(request, roles) {
   const authResult = await authenticate(request)
   if (authResult.error) {
     return { res: Response.json({ error: authResult.error }, { status: authResult.status }) }
   }
-  const denied = requireRoles(authResult.user.role, OWNER_ROLES)
+  const denied = requireRoles(authResult.user.role, roles)
   if (denied) return { res: Response.json({ error: denied.error }, { status: denied.status }) }
   return { user: authResult.user }
 }
 
+const authOwner = (request) => authWithRoles(request, OWNER_ROLES)
+const authEdit = (request) => authWithRoles(request, EDIT_ROLES)
+
 export async function PUT(request, { params }) {
   try {
-    const { user, res } = await authOwner(request)
+    const { user, res } = await authEdit(request)
     if (res) return res
     await connectDB()
     const { id } = await params

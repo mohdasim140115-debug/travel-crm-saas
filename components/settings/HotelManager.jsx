@@ -144,8 +144,8 @@ async function filesToDataUrls(files) {
   )
 }
 
-/** `readOnly` — staff (Sales/Operations/Accounts) can browse and ADD hotels,
- * but only the Owner edits or deletes existing ones. */
+/** `readOnly` — staff (Sales/Operations/Accounts) can browse, ADD and EDIT
+ * hotels; only the Owner deletes existing ones. */
 export function HotelManager({ readOnly = false } = {}) {
   const [hotels, setHotels] = useState([])
   const [loading, setLoading] = useState(true)
@@ -402,17 +402,21 @@ export function HotelManager({ readOnly = false } = {}) {
                       {/* Always visible — these used to be hover-only on
                         * desktop (md:opacity-0 …group-hover…), which made the
                         * Edit/Delete buttons look completely absent to anyone
-                        * on a laptop who didn't happen to mouse over the card. */}
-                      {!readOnly && (
-                        <div className="absolute bottom-0 right-0 flex gap-1 bg-gradient-to-t from-black/50 to-transparent p-1.5">
-                          <Button
-                            size="icon"
-                            variant="secondary"
-                            className="h-7 w-7"
-                            onClick={() => openEdit(h)}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
+                        * on a laptop who didn't happen to mouse over the card.
+                        * Edit is open to Sales/Operations/Accounts too now —
+                        * only Delete (and Settings' archive toggle) stay
+                        * Owner-only since those remove/hide the entry for
+                        * everyone, not just correct a typo. */}
+                      <div className="absolute bottom-0 right-0 flex gap-1 bg-gradient-to-t from-black/50 to-transparent p-1.5">
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="h-7 w-7"
+                          onClick={() => openEdit(h)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        {!readOnly && (
                           <Button
                             size="icon"
                             variant="secondary"
@@ -421,8 +425,8 @@ export function HotelManager({ readOnly = false } = {}) {
                           >
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
 
                     <div className="p-3">

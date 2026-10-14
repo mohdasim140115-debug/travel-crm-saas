@@ -16,7 +16,6 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar as CalendarPicker } from '@/components/ui/calendar'
-import { TimeSelect } from '@/components/ui/time-select'
 import { TableShell } from '@/components/crm/TableShell'
 import { LeadPreviewDrawer } from '@/components/crm/LeadPreviewDrawer'
 import { LeadItinerariesDialog } from '@/components/crm/LeadItinerariesDialog'
@@ -370,10 +369,14 @@ function LeadsContent() {
       setFollowUpDateError(true)
       return
     }
-    if (needsGenericFollowUp && formData.followUpDate && new Date(formData.followUpDate).getTime() < Date.now() - 60000) {
-      toast.error('Follow-up time has already passed — check the time and AM/PM')
-      setFollowUpDateError(true)
-      return
+    if (needsGenericFollowUp && formData.followUpDate) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (new Date(formData.followUpDate) < today) {
+        toast.error('Follow-up date has already passed')
+        setFollowUpDateError(true)
+        return
+      }
     }
     setFollowUpDateError(false)
     setSubmitting(true)
@@ -1234,8 +1237,8 @@ function LeadsContent() {
                       >
                         <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                         {formData.followUpDate
-                          ? format(new Date(formData.followUpDate), 'dd MMM yyyy, hh:mm a')
-                          : 'Select date & time'}
+                          ? format(new Date(formData.followUpDate), 'dd MMM yyyy')
+                          : 'Select date'}
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -1244,27 +1247,11 @@ function LeadsContent() {
                         selected={formData.followUpDate ? new Date(formData.followUpDate) : undefined}
                         onSelect={(date) => {
                           if (!date) return
-                          const prev = formData.followUpDate ? new Date(formData.followUpDate) : new Date()
-                          date.setHours(prev.getHours(), prev.getMinutes())
-                          setFormData({ ...formData, followUpDate: format(date, "yyyy-MM-dd'T'HH:mm") })
+                          setFormData({ ...formData, followUpDate: format(date, "yyyy-MM-dd'T'09:00") })
+                          setFollowUpDateOpen(false)
                         }}
                         autoFocus
                       />
-                      <div className="flex items-center gap-2 border-t p-3">
-                        <label className="shrink-0 text-xs">Time</label>
-                        <TimeSelect
-                          value={formData.followUpDate ? formData.followUpDate.slice(11, 16) : ''}
-                          onChange={(timeStr) => {
-                            const [hh, mm] = timeStr.split(':').map(Number)
-                            const base = formData.followUpDate ? new Date(formData.followUpDate) : new Date()
-                            base.setHours(hh, mm)
-                            setFormData({ ...formData, followUpDate: format(base, "yyyy-MM-dd'T'HH:mm") })
-                          }}
-                        />
-                        <Button size="sm" className="ml-auto" onClick={() => setFollowUpDateOpen(false)}>
-                          Done
-                        </Button>
-                      </div>
                     </PopoverContent>
                   </Popover>
                   <p className="text-xs text-muted-foreground">
