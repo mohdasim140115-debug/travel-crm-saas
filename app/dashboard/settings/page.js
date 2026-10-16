@@ -73,13 +73,19 @@ export default function SettingsPage() {
   const [navSearch, setNavSearch] = useState('')
   const [mobileView, setMobileView] = useState('list')
   const [subInfo, setSubInfo] = useState(null)
+  const [role, setRole] = useState(null)
 
   useEffect(() => {
     let role
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}')
       role = u.role
-      if (!['admin', 'superadmin'].includes(u.role)) {
+      // A teammate an itinerary-only owner added via Team shares the same
+      // role but has no access to Settings at all — only Itinerary Builder.
+      if (
+        !['admin', 'superadmin', 'itinerary_only'].includes(u.role) ||
+        (u.role === 'itinerary_only' && u.requestedBy)
+      ) {
         router.replace('/dashboard')
         return
       }
@@ -87,6 +93,8 @@ export default function SettingsPage() {
       router.replace('/login')
       return
     }
+    setRole(role)
+    if (role === 'itinerary_only') setActive('company')
     setReady(true)
 
     // Only the agency owner sees the subscription notice — staff they add

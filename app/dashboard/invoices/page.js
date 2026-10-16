@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, FileText, Upload, Loader2 } from 'lucide-react'
+import { Plus, FileText, Upload, Loader2, ChevronsUpDown, Check, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -61,6 +64,7 @@ function InvoicesPageInner() {
   const [dayPlanDates, setDayPlanDates] = useState([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
+  const [bookingPopoverOpen, setBookingPopoverOpen] = useState(false)
   const [finalInvoiceAmount, setFinalInvoiceAmount] = useState(0)
   const [hasFinalInvoice, setHasFinalInvoice] = useState(false)
   const [paymentScreenshot, setPaymentScreenshot] = useState('')
@@ -403,12 +407,19 @@ function InvoicesPageInner() {
     )
   }
 
+  const [search, setSearch] = useState('')
+
   const visibleInvoices = useMemo(() => {
-    if (clientFilter === 'all') return groupedInvoices
-    if (clientFilter === 'tomorrow') return groupedInvoices.filter((g) => g.arrivingTomorrow)
-    if (clientFilter === 'pending') return groupedInvoices.filter(isPending)
-    return groupedInvoices.filter((g) => g.tripStage === clientFilter)
-  }, [groupedInvoices, clientFilter])
+    let list = groupedInvoices
+    if (clientFilter === 'tomorrow') list = list.filter((g) => g.arrivingTomorrow)
+    else if (clientFilter === 'pending') list = list.filter(isPending)
+    else if (clientFilter !== 'all') list = list.filter((g) => g.tripStage === clientFilter)
+
+    const q = search.trim().toLowerCase()
+    if (q) list = list.filter((g) => (g.clientName || '').toLowerCase().includes(q))
+
+    return list
+  }, [groupedInvoices, clientFilter, search])
 
   return (
     <div className="space-y-6">
@@ -430,6 +441,15 @@ function InvoicesPageInner() {
             All invoices
           </CardTitle>
           <CardDescription>{visibleInvoices.length} client(s)</CardDescription>
+          <div className="relative pt-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by client name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
           <div className="scroll-hover-thin flex flex-nowrap gap-2 overflow-x-auto pt-1 pb-1">
             {[
               { key: 'all', label: 'All' },
@@ -465,6 +485,9 @@ function InvoicesPageInner() {
                     <Badge className="bg-destructive hover:bg-destructive">Cancelled</Badge>
                   )}
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Received: <span className="text-success font-medium">{formatInr(g.amountPaidSum)}</span>
+                </p>
                 <div className="mt-2 flex items-center justify-between">
                   <span>{formatInr(g.packageTotal)}</span>
                   {g.bookingStatus === 'cancelled' ? (
@@ -492,6 +515,7 @@ function InvoicesPageInner() {
                 <TableHead>S.No</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Total</TableHead>
+                <TableHead>Received</TableHead>
                 <TableHead>Due</TableHead>
                 <TableHead>Due balance</TableHead>
               </TableRow>
@@ -499,13 +523,13 @@ function InvoicesPageInner() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     Loading…
                   </TableCell>
                 </TableRow>
               ) : visibleInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     {clientFilter === 'all' ? (
                       <>
                         No invoices yet.{' '}
@@ -536,6 +560,7 @@ function InvoicesPageInner() {
                       </div>
                     </TableCell>
                     <TableCell>{formatInr(g.packageTotal)}</TableCell>
+                    <TableCell className="text-success font-medium">{formatInr(g.amountPaidSum)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {g.dueDate ? new Date(g.dueDate).toLocaleDateString() : '—'}
                     </TableCell>
@@ -571,18 +596,55 @@ function InvoicesPageInner() {
           <div className="flex-1 space-y-4 overflow-y-auto pr-1">
             <div className="space-y-2">
               <Label>Client / Booking *</Label>
-              <Select value={form.bookingId} onValueChange={selectBooking}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select booking" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bookings.map((b) => (
-                    <SelectItem key={b._id} value={String(b._id)}>
-                      {b.bookingNumber} — {b.leadId?.firstName} {b.leadId?.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={bookingPopoverOpen} onOpenChange={setBookingPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={bookingPopoverOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {(() => {
+                      const selected = bookings.find((b) => String(b._id) === form.bookingId)
+                      if (!selected) return <span className="text-muted-foreground">Select booking</span>
+                      const name = [selected.leadId?.firstName, selected.leadId?.lastName].filter(Boolean).join(' ') || 'Unnamed'
+                      return `${name} — ${formatInr(selected.totalAmount || 0)}`
+                    })()}
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search client…" />
+                    <CommandList>
+                      <CommandEmpty>No client found.</CommandEmpty>
+                      <CommandGroup>
+                        {bookings.map((b) => {
+                          const name = [b.leadId?.firstName, b.leadId?.lastName].filter(Boolean).join(' ') || 'Unnamed'
+                          return (
+                            <CommandItem
+                              key={b._id}
+                              value={`${name} ${b.bookingNumber || ''}`}
+                              onSelect={() => {
+                                selectBooking(String(b._id))
+                                setBookingPopoverOpen(false)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4',
+                                  String(b._id) === form.bookingId ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                              {name} — {formatInr(b.totalAmount || 0)}
+                            </CommandItem>
+                          )
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <p className="text-xs text-muted-foreground">
                 Picking a booking fills in the client's name, contact, and package amount below.
               </p>

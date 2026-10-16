@@ -1,10 +1,10 @@
 import connectDB from '@/lib/mongodb'
 import Vehicle from '@/models/Vehicle'
-import { authenticate, requireRoles } from '@/lib/middleware'
+import { authenticate, requireOwnerRoles } from '@/lib/middleware'
 import { recordAudit } from '@/lib/audit'
 import { tenantFilter, tenantReadFilter } from '@/lib/tenant'
 
-const OWNER_ROLES = ['admin', 'superadmin']
+const OWNER_ROLES = ['admin', 'superadmin', 'itinerary_only']
 // Sales / Operations / Accounts can add hotels & vehicles too (edit/delete stay owner-only).
 const ADD_ROLES = [...OWNER_ROLES, 'agent', 'manager', 'operations', 'accounts']
 
@@ -58,7 +58,7 @@ export async function POST(request) {
     if (authResult.error) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
-    const denied = requireRoles(authResult.user.role, ADD_ROLES)
+    const denied = requireOwnerRoles(authResult.user, ADD_ROLES)
     if (denied) return Response.json({ error: denied.error }, { status: denied.status })
 
     await connectDB()

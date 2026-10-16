@@ -11,6 +11,21 @@ button:not(:disabled),
   cursor: pointer;
 }
 
+/* Marketing homepage's "Trusted by" agency-logo strip — scrolls the
+   (duplicated) track left by exactly half its width, which is a clean loop
+   since the track is literally the list twice over. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
 :root {
   /* radius is theme-independent */
   --radius: 1rem;

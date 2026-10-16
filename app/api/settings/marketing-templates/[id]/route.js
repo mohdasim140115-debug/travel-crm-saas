@@ -1,10 +1,10 @@
 import connectDB from '@/lib/mongodb'
 import MarketingTemplate from '@/models/MarketingTemplate'
-import { authenticate, requireRoles } from '@/lib/middleware'
+import { authenticate, requireOwnerRoles } from '@/lib/middleware'
 import { recordAudit } from '@/lib/audit'
 import mongoose from 'mongoose'
 
-const OWNER_ROLES = ['admin', 'superadmin']
+const OWNER_ROLES = ['admin', 'superadmin', 'itinerary_only']
 
 function scope(user, id) {
   return { _id: id, teamId: new mongoose.Types.ObjectId(String(user.teamId)) }
@@ -15,7 +15,7 @@ async function authOwner(request) {
   if (authResult.error) {
     return { res: Response.json({ error: authResult.error }, { status: authResult.status }) }
   }
-  const denied = requireRoles(authResult.user.role, OWNER_ROLES)
+  const denied = requireOwnerRoles(authResult.user, OWNER_ROLES)
   if (denied) return { res: Response.json({ error: denied.error }, { status: denied.status }) }
   return { user: authResult.user }
 }

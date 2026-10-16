@@ -26,7 +26,6 @@ import {
   ArrowRight,
   Plane,
   Building2,
-  ShieldCheck,
   Sparkles,
   Star,
   Loader2,
@@ -162,6 +161,51 @@ export default function Home() {
   )
 }
 
+function AgencyLogoStrip() {
+  const [agencies, setAgencies] = useState([])
+
+  useEffect(() => {
+    fetch('/api/public/agencies')
+      .then((r) => r.json())
+      .then((d) => setAgencies(d.agencies || []))
+      .catch(() => {})
+  }, [])
+
+  if (!agencies.length) return null
+
+  // Duplicated once so the marquee can loop seamlessly at -50% instead of
+  // snapping back to the start.
+  const track = [...agencies, ...agencies]
+
+  return (
+    <div className="mx-auto mt-4 w-full max-w-7xl">
+      <p className="mb-2 text-center text-sm font-medium text-muted-foreground">
+        Trusted by travel agencies across India
+      </p>
+      <div className="group relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+        <div className="flex w-max animate-marquee gap-5 group-hover:[animation-play-state:paused]">
+          {track.map((a, i) => (
+            <div
+              key={`${a.name}-${i}`}
+              className="flex h-28 w-56 shrink-0 items-center justify-center rounded-xl border border-border bg-white p-4 shadow-sm"
+              title={a.name}
+            >
+              <Image
+                src={a.logo}
+                alt={a.name}
+                width={200}
+                height={96}
+                unoptimized
+                className="h-full w-full object-contain"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function HomeContent() {
   const searchParams = useSearchParams()
   const [demoOpen, setDemoOpen] = useState(false)
@@ -287,7 +331,7 @@ function HomeContent() {
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-grid opacity-70" />
         <div className="pointer-events-none absolute -top-40 left-1/2 h-[500px] w-[500px] -translate-x-1/2 glow-primary" />
-        <div className="relative mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 lg:px-8 lg:py-28">
+        <div className="relative mx-auto max-w-7xl px-4 pt-8 pb-20 text-center sm:px-6 lg:px-8 lg:pt-12 lg:pb-28">
           <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/60 px-4 py-1.5 text-sm text-muted-foreground">
             <Sparkles className="h-4 w-4 text-accent-secondary" />
             The all-in-one platform for travel agencies
@@ -314,10 +358,7 @@ function HomeContent() {
               </Button>
             </a>
           </div>
-          <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-accent-secondary" />
-            No credit card required · Multi-tenant & secure
-          </div>
+          <AgencyLogoStrip />
 
           {/* Stats */}
           <div className="mx-auto mt-16 grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-4">

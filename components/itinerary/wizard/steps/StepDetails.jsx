@@ -44,7 +44,24 @@ export default function StepDetails({ form, update }) {
   // up here, no matter how many were added.
   const { options: packageCategoryOptions } = useMasters('package_category', PACKAGE_CATEGORIES)
 
+  // A restricted itinerary-only account has no Leads access at all — the
+  // lead-search dropdown would just be permanently empty for them. They
+  // type a plain client name instead; nothing gets linked to a lead.
+  const [isItineraryOnly, setIsItineraryOnly] = useState(false)
   useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}')
+      setIsItineraryOnly(u.role === 'itinerary_only')
+    } catch {
+      setIsItineraryOnly(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isItineraryOnly) {
+      setLeadsLoading(false)
+      return
+    }
     const token = localStorage.getItem('token')
     fetch('/api/leads?limit=200', { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
@@ -53,7 +70,7 @@ export default function StepDetails({ form, update }) {
       )
       .catch(() => {})
       .finally(() => setLeadsLoading(false))
-  }, [])
+  }, [isItineraryOnly])
 
   const query = (form.customerName || '').trim().toLowerCase()
   const filteredLeads = query ? leads.filter((l) => leadName(l).toLowerCase().includes(query)) : leads
@@ -123,53 +140,62 @@ export default function StepDetails({ form, update }) {
             <User className="h-3.5 w-3.5" /> Client name *
           </Label>
           <div className="min-w-0 flex-1">
-            <Popover open={leadPopoverOpen} onOpenChange={setLeadPopoverOpen}>
-              <PopoverAnchor asChild>
-                <Input
-                  placeholder="Search and select a client…"
-                  value={form.customerName}
-                  onChange={(e) => {
-                    // Typing only filters the dropdown — it doesn't count as
-                    // picking a client, so clear leadId until an actual
-                    // CommandItem is selected. Continue is blocked without one.
-                    update({ customerName: e.target.value, leadId: '' })
-                    setLeadPopoverOpen(true)
-                  }}
-                  onFocus={() => setLeadPopoverOpen(true)}
-                  onBlur={() => {
-                    if (!form.leadId) {
-                      setTimeout(() => update({ customerName: '' }), 150)
-                    }
-                  }}
-                  className="rounded-xl"
-                />
-              </PopoverAnchor>
-              <PopoverContent
-                className="w-(--radix-popover-anchor-width) p-0"
-                align="start"
-                onOpenAutoFocus={(e) => e.preventDefault()}
-                onCloseAutoFocus={(e) => e.preventDefault()}
-              >
-                <Command shouldFilter={false}>
-                  <CommandList>
-                    <CommandEmpty>
-                      {leadsLoading ? 'Loading leads…' : leads.length === 0 ? 'No leads found.' : 'No matching leads.'}
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {filteredLeads.map((lead) => (
-                        <CommandItem
-                          key={lead._id}
-                          value={lead._id}
-                          onSelect={() => selectLead(lead)}
-                        >
-                          {leadName(lead)}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            {isItineraryOnly ? (
+              <Input
+                placeholder="Enter client name"
+                value={form.customerName}
+                onChange={(e) => update({ customerName: e.target.value })}
+                className="rounded-xl"
+              />
+            ) : (
+              <Popover open={leadPopoverOpen} onOpenChange={setLeadPopoverOpen}>
+                <PopoverAnchor asChild>
+                  <Input
+                    placeholder="Search and select a client…"
+                    value={form.customerName}
+                    onChange={(e) => {
+                      // Typing only filters the dropdown — it doesn't count as
+                      // picking a client, so clear leadId until an actual
+                      // CommandItem is selected. Continue is blocked without one.
+                      update({ customerName: e.target.value, leadId: '' })
+                      setLeadPopoverOpen(true)
+                    }}
+                    onFocus={() => setLeadPopoverOpen(true)}
+                    onBlur={() => {
+                      if (!form.leadId) {
+                        setTimeout(() => update({ customerName: '' }), 150)
+                      }
+                    }}
+                    className="rounded-xl"
+                  />
+                </PopoverAnchor>
+                <PopoverContent
+                  className="w-(--radix-popover-anchor-width) p-0"
+                  align="start"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                  onCloseAutoFocus={(e) => e.preventDefault()}
+                >
+                  <Command shouldFilter={false}>
+                    <CommandList>
+                      <CommandEmpty>
+                        {leadsLoading ? 'Loading leads…' : leads.length === 0 ? 'No leads found.' : 'No matching leads.'}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredLeads.map((lead) => (
+                          <CommandItem
+                            key={lead._id}
+                            value={lead._id}
+                            onSelect={() => selectLead(lead)}
+                          >
+                            {leadName(lead)}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
         </div>
         <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">

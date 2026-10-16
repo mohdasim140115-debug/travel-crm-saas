@@ -94,7 +94,7 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     if (!user || loading) return
-    const allowedHrefs = getNavItems(user.role).map((m) => m.href)
+    const allowedHrefs = getNavItems(user).map((m) => m.href)
     if (pathname === '/dashboard') return
     if (!canAccessLeads(user.role) && pathname.startsWith('/dashboard/leads')) {
       router.replace(getDashboardRoute(user.role))
@@ -219,7 +219,7 @@ export default function DashboardLayout({ children }) {
 
   const menuItems = useMemo(() => {
     if (!user?.role) return []
-    const items = getNavItems(user.role)
+    const items = getNavItems(user)
     const icons = {
       '/dashboard/platform': Globe,
       '/dashboard/platform/demo-requests': PhoneCall,

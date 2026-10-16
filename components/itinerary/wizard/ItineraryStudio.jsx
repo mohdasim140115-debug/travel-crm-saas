@@ -50,6 +50,17 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
   // highlight exactly which day/field is still empty — clears itself the
   // instant the day is filled in (see StepPlan's live re-check).
   const [showPlanErrors, setShowPlanErrors] = useState(false)
+  // A restricted itinerary-only account has no Leads to pick from — they
+  // just type a client name, so don't require leadId for them.
+  const [isItineraryOnly, setIsItineraryOnly] = useState(false)
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}')
+      setIsItineraryOnly(u.role === 'itinerary_only')
+    } catch {
+      setIsItineraryOnly(false)
+    }
+  }, [])
 
   // Continuing to the next step used to leave the page scrolled wherever the
   // previous step's Continue button happened to be — the new step then
@@ -135,8 +146,11 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
       // New days from bumping up the duration pick up where the plan already
       // left off — one calendar day after the last day that has a date — the
       // same way picking a date for Day 1 lets every later day inherit one
-      // (see the Schedule Date handler in StepPlan). Nobody wants to go back
-      // and manually date every day they just added.
+      // (see the Schedule Date handler in StepPlan). But only once the agent
+      // has actually dated at least one day themselves — falling back to the
+      // trip's startDate used to date brand-new days nobody had picked a
+      // date for yet, which looked like dates appearing out of nowhere
+      // before any date was ever selected.
       let nextDate = null
       for (let i = current.length - 1; i >= 0; i--) {
         if (current[i]?.date) {
@@ -145,10 +159,6 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
           nextDate = d
           break
         }
-      }
-      if (!nextDate && form.startDate) {
-        nextDate = new Date(String(form.startDate).slice(0, 10))
-        nextDate.setDate(nextDate.getDate() + current.length)
       }
       const additions = []
       for (let i = current.length; i < targetCount; i++) {
@@ -171,8 +181,12 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
   // earlier step while a night's cost or the extra-bed/CNB rate is missing.
   const validateStep = (includeCosting = false) => {
     if (step === 1) {
-      if (!form.leadId) {
+      if (!isItineraryOnly && !form.leadId) {
         toast.error('Select a client from the dropdown list')
+        return false
+      }
+      if (isItineraryOnly && !form.customerName?.trim()) {
+        toast.error('Enter the client name')
         return false
       }
       if (!form.destination?.trim()) {
@@ -205,6 +219,12 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
       if (blankIndex !== -1) {
         setShowPlanErrors(true)
         toast.error(`Fill in Day ${blankIndex + 1}'s activity title and description before continuing`)
+        return false
+      }
+      const undatedIndex = days.findIndex((d) => !d.date)
+      if (undatedIndex !== -1) {
+        setShowPlanErrors(true)
+        toast.error(`Select a date for Day ${undatedIndex + 1} before continuing`)
         return false
       }
       setShowPlanErrors(false)

@@ -1,10 +1,10 @@
 import connectDB from '@/lib/mongodb'
 import Hotel from '@/models/Hotel'
-import { authenticate, requireRoles } from '@/lib/middleware'
+import { authenticate, requireOwnerRoles } from '@/lib/middleware'
 import { recordAudit } from '@/lib/audit'
 import mongoose from 'mongoose'
 
-const OWNER_ROLES = ['admin', 'superadmin']
+const OWNER_ROLES = ['admin', 'superadmin', 'itinerary_only']
 // Sales/Operations/Accounts can now edit an existing hotel's details (not
 // just add new ones) — archive/restore/toggle-active and delete stay
 // Owner-only since those are destructive/visibility-wide actions.
@@ -19,7 +19,7 @@ async function authWithRoles(request, roles) {
   if (authResult.error) {
     return { res: Response.json({ error: authResult.error }, { status: authResult.status }) }
   }
-  const denied = requireRoles(authResult.user.role, roles)
+  const denied = requireOwnerRoles(authResult.user, roles)
   if (denied) return { res: Response.json({ error: denied.error }, { status: denied.status }) }
   return { user: authResult.user }
 }

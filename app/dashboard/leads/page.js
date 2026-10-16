@@ -35,7 +35,10 @@ function FollowUpCell({ date }) {
   const now = new Date()
   const isToday =
     d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
-  const overdue = d.getTime() < now.getTime()
+  // Compared by calendar date, not exact time — follow-up dates no longer
+  // carry a meaningful time (fixed to 9:00 AM since the time picker was
+  // removed), so "today" never reads as overdue just because 9 AM passed.
+  const overdue = !isToday && d.getTime() < now.getTime()
   const colorClass = overdue
     ? 'bg-destructive text-white'
     : isToday
@@ -43,7 +46,7 @@ function FollowUpCell({ date }) {
       : 'bg-warning/15 text-warning'
   return (
     <span className={`inline-block whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold ${colorClass}`}>
-      {format(d, 'MMM d, h:mm a')}
+      {format(d, 'MMM d, yyyy')}
     </span>
   )
 }

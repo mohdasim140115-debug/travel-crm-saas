@@ -384,6 +384,7 @@ export default function StepPlan({ form, update, showErrors = false }) {
         // clears itself live as soon as that field is typed into.
         const titleMissing = showErrors && !day.title?.trim()
         const descriptionMissing = showErrors && !day.description?.trim()
+        const dateMissing = showErrors && !day.date
         return (
         <Card
           key={index}
@@ -509,7 +510,10 @@ export default function StepPlan({ form, update, showErrors = false }) {
                   <PopoverTrigger asChild>
                     <button
                       type="button"
-                      className="flex h-10 w-full items-center gap-2 rounded-full border border-accent-secondary/30 bg-accent-secondary/10 px-4 text-left text-sm font-bold text-accent-secondary sm:w-40"
+                      className={cn(
+                        'flex h-10 w-full items-center gap-2 rounded-full border border-accent-secondary/30 bg-accent-secondary/10 px-4 text-left text-sm font-bold text-accent-secondary sm:w-40',
+                        dateMissing && 'border-destructive bg-destructive/10 text-destructive'
+                      )}
                     >
                       <CalendarIcon className="h-4 w-4 shrink-0" />
                       {day.date ? format(new Date(String(day.date).slice(0, 10)), 'dd MMM yyyy') : 'Select date'}

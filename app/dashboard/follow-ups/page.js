@@ -339,7 +339,7 @@ function FollowUpsContent() {
         <>
           <div className="space-y-3 p-4 md:hidden">
             {filteredFollowUps.map((followUp) => {
-              const isOverdue = new Date(followUp.scheduledDate) < new Date() && followUp.status === 'pending'
+              const isOverdue = !isToday(followUp.scheduledDate) && new Date(followUp.scheduledDate) < new Date() && followUp.status === 'pending'
               return (
                 <div key={followUp._id} className="rounded-xl border p-4">
                   <div className="flex items-start justify-between gap-2">
@@ -403,7 +403,7 @@ function FollowUpsContent() {
               </thead>
               <tbody>
                 {filteredFollowUps.map((followUp) => {
-                    const isOverdue = new Date(followUp.scheduledDate) < new Date() && followUp.status === 'pending'
+                    const isOverdue = !isToday(followUp.scheduledDate) && new Date(followUp.scheduledDate) < new Date() && followUp.status === 'pending'
                     const lead = followUp.leadId
 
                     return (

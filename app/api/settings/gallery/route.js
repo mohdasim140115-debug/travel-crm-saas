@@ -1,10 +1,10 @@
 import connectDB from '@/lib/mongodb'
 import Brand from '@/models/Brand'
 import Team from '@/models/Team'
-import { authenticate, requireRoles } from '@/lib/middleware'
+import { authenticate, requireOwnerRoles } from '@/lib/middleware'
 import mongoose from 'mongoose'
 
-const OWNER_ROLES = ['admin', 'superadmin']
+const OWNER_ROLES = ['admin', 'superadmin', 'itinerary_only']
 const MAX_GALLERY_IMAGES = 4
 
 /** Same default-brand resolution as /api/settings/company — the gallery lives on the workspace's default brand. */
@@ -31,7 +31,7 @@ export async function GET(request) {
     if (authResult.error) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
-    const denied = requireRoles(authResult.user.role, OWNER_ROLES)
+    const denied = requireOwnerRoles(authResult.user, OWNER_ROLES)
     if (denied) return Response.json({ error: denied.error }, { status: denied.status })
 
     await connectDB()
@@ -49,7 +49,7 @@ export async function POST(request) {
     if (authResult.error) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
-    const denied = requireRoles(authResult.user.role, OWNER_ROLES)
+    const denied = requireOwnerRoles(authResult.user, OWNER_ROLES)
     if (denied) return Response.json({ error: denied.error }, { status: denied.status })
 
     const body = await request.json()
@@ -88,7 +88,7 @@ export async function DELETE(request) {
     if (authResult.error) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
-    const denied = requireRoles(authResult.user.role, OWNER_ROLES)
+    const denied = requireOwnerRoles(authResult.user, OWNER_ROLES)
     if (denied) return Response.json({ error: denied.error }, { status: denied.status })
 
     // Deleting by the raw data-URL (a base64 image, easily several KB) as a

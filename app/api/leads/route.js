@@ -94,11 +94,17 @@ export async function GET(request) {
         if (!existing || new Date(fu.createdAt) > new Date(existing.createdAt)) latestPerLead.set(key, fu)
       }
       const now = new Date()
-      const todayEnd = new Date(istStartOfDay(now).getTime() + 86400000)
+      const todayStart = istStartOfDay(now)
+      const todayEnd = new Date(todayStart.getTime() + 86400000)
       const matchingLeadIds = []
       for (const fu of latestPerLead.values()) {
         const d = new Date(fu.scheduledDate)
-        const isPending = d < now
+        // Compared by calendar date, not exact time — follow-up dates no
+        // longer carry a meaningful time (they're all fixed to 9:00 AM since
+        // the time picker was removed), so a same-day follow-up must read as
+        // "Today" all day long, not flip to "Pending"/overdue the moment
+        // 9 AM passes.
+        const isPending = d < todayStart
         const isToday = !isPending && d < todayEnd
         if (
           followUpFilter === 'any' ||

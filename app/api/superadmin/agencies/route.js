@@ -152,6 +152,11 @@ export async function POST(request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) {
       return Response.json({ error: 'Invalid owner email' }, { status: 400 })
     }
+    // 'itinerary_only' — the restricted "can only build itineraries" account
+    // type the super admin creates from its own button on this page. Any
+    // other value is rejected so this never becomes a back door to create a
+    // superadmin/operations/etc. account through the agency-create form.
+    const ownerRole = body?.role === 'itinerary_only' ? 'itinerary_only' : 'admin'
 
     await connectDB()
     await seedDefaultPlans()
@@ -179,7 +184,7 @@ export async function POST(request) {
       email: ownerEmail,
       phone: body?.ownerPhone || undefined,
       password: await hashPassword(ownerPassword),
-      role: 'admin',
+      role: ownerRole,
       isActive: true,
     })
 

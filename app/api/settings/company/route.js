@@ -1,10 +1,14 @@
 import connectDB from '@/lib/mongodb'
 import Brand from '@/models/Brand'
 import Team from '@/models/Team'
-import { authenticate, requireRoles } from '@/lib/middleware'
+import { authenticate, requireOwnerRoles } from '@/lib/middleware'
 import mongoose from 'mongoose'
 
-const OWNER_ROLES = ['admin', 'superadmin']
+// An itinerary-only account is a restricted agency owner (see Platform →
+// Agencies → "Itinerary Account") — they still need to set their own logo
+// and contact details so their PDFs aren't blank-branded, even though they
+// have no access to the rest of Settings.
+const OWNER_ROLES = ['admin', 'superadmin', 'itinerary_only']
 
 /**
  * The "Company Profile" is the workspace's default brand — the agency whose
@@ -33,7 +37,7 @@ export async function GET(request) {
     if (authResult.error) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
-    const denied = requireRoles(authResult.user.role, OWNER_ROLES)
+    const denied = requireOwnerRoles(authResult.user, OWNER_ROLES)
     if (denied) return Response.json({ error: denied.error }, { status: denied.status })
 
     await connectDB()
@@ -51,7 +55,7 @@ export async function PUT(request) {
     if (authResult.error) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
-    const denied = requireRoles(authResult.user.role, OWNER_ROLES)
+    const denied = requireOwnerRoles(authResult.user, OWNER_ROLES)
     if (denied) return Response.json({ error: denied.error }, { status: denied.status })
 
     await connectDB()

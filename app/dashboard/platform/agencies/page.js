@@ -174,6 +174,40 @@ export default function AgenciesPage() {
   const [draft, setDraft] = useState(() => ({ ...EMPTY_AGENCY, subscriptionExpiresAt: defaultExpiryDate() }))
   const [demoId, setDemoId] = useState(null)
 
+  // A restricted account that can only use the Itinerary Builder — same
+  // create-agency endpoint, just tagged role: 'itinerary_only' and with a
+  // much shorter form (no plan/subscription fields to pick, since those are
+  // meaningless for an account that never touches Leads/Bookings).
+  const [itinOpen, setItinOpen] = useState(false)
+  const [itinCreating, setItinCreating] = useState(false)
+  const EMPTY_ITIN_ACCOUNT = { name: '', ownerName: '', ownerEmail: '', ownerPassword: '', ownerPhone: '' }
+  const [itinDraft, setItinDraft] = useState(EMPTY_ITIN_ACCOUNT)
+
+  const createItinAccount = async () => {
+    setItinCreating(true)
+    try {
+      await saFetch('/api/superadmin/agencies', {
+        method: 'POST',
+        body: {
+          ...itinDraft,
+          role: 'itinerary_only',
+          plan: 'basic',
+          subscriptionStatus: 'active',
+          subscriptionExpiresAt: defaultExpiryDate(),
+        },
+      })
+      toast.success(`Itinerary-only account "${itinDraft.name}" created`)
+      setItinOpen(false)
+      setItinDraft(EMPTY_ITIN_ACCOUNT)
+      setPage(1)
+      load()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setItinCreating(false)
+    }
+  }
+
   // Arriving from a "Book a Demo" request pre-fills the create-agency form
   // with what the lead already gave us instead of retyping it.
   useEffect(() => {
@@ -338,6 +372,10 @@ export default function AgenciesPage() {
             ))}
           </SelectContent>
         </Select>
+        <Button variant="outline" onClick={() => setItinOpen(true)} className="h-10">
+          <Plane className="mr-2 h-4 w-4" />
+          Itinerary Account
+        </Button>
         <Button onClick={() => setCreateOpen(true)} className="h-10 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:opacity-90">
           <Plus className="mr-2 h-4 w-4" />
           Add Agency
@@ -639,6 +677,65 @@ export default function AgenciesPage() {
             <Button className="w-full" onClick={createAgency} disabled={creating}>
               {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Agency
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={itinOpen} onOpenChange={setItinOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plane className="h-5 w-5" />
+              Itinerary-only account
+            </DialogTitle>
+            <DialogDescription>
+              A restricted account that can only use the Itinerary Builder and view its own
+              itineraries — no Leads, Bookings, Settings or anything else.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Agency name *</Label>
+              <Input
+                value={itinDraft.name}
+                onChange={(e) => setItinDraft({ ...itinDraft, name: e.target.value })}
+                placeholder="e.g. Freelance Itinerary Maker"
+              />
+            </div>
+            <div>
+              <Label>Full name *</Label>
+              <Input
+                value={itinDraft.ownerName}
+                onChange={(e) => setItinDraft({ ...itinDraft, ownerName: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Email *</Label>
+              <Input
+                type="email"
+                value={itinDraft.ownerEmail}
+                onChange={(e) => setItinDraft({ ...itinDraft, ownerEmail: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input
+                value={itinDraft.ownerPhone}
+                onChange={(e) => setItinDraft({ ...itinDraft, ownerPhone: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Temporary password *</Label>
+              <PasswordInput
+                value={itinDraft.ownerPassword}
+                onChange={(e) => setItinDraft({ ...itinDraft, ownerPassword: e.target.value })}
+                placeholder="Minimum 8 characters"
+              />
+            </div>
+            <Button className="w-full" onClick={createItinAccount} disabled={itinCreating}>
+              {itinCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create account
             </Button>
           </div>
         </DialogContent>

@@ -60,6 +60,8 @@ export default function AdminPage() {
   })
   const [newPassword, setNewPassword] = useState('')
   const [currentUserId, setCurrentUserId] = useState('')
+  const [role, setRole] = useState('')
+  const isItinOwner = role === 'itinerary_only'
 
   const token = () => localStorage.getItem('token')
 
@@ -94,10 +96,16 @@ export default function AdminPage() {
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}')
-      if (!['superadmin', 'admin'].includes(u.role)) {
+      // A teammate an itinerary-only owner added via Team shares the same
+      // role but can't manage the team themselves — only build itineraries.
+      if (
+        !['superadmin', 'admin', 'itinerary_only'].includes(u.role) ||
+        (u.role === 'itinerary_only' && u.requestedBy)
+      ) {
         window.location.href = '/dashboard'
         return
       }
+      setRole(u.role)
       setCurrentUserId(String(u.userId || u.id || ''))
     } catch {}
     fetchAll()
@@ -159,12 +167,16 @@ export default function AdminPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
-        title="Team & Employee Management"
-        description="Add/remove employees, change roles, reset passwords, and control lead distribution."
+        title={isItinOwner ? 'Team' : 'Team & Employee Management'}
+        description={
+          isItinOwner
+            ? 'Add teammates who can also create itineraries for your agency.'
+            : 'Add/remove employees, change roles, reset passwords, and control lead distribution.'
+        }
         actions={
           <Button onClick={() => setAddOpen(true)}>
             <UserPlus className="mr-2 h-4 w-4" />
-            Add Employee
+            {isItinOwner ? 'Add Teammate' : 'Add Employee'}
           </Button>
         }
       />
@@ -176,60 +188,68 @@ export default function AdminPage() {
         </div>
       )}
 
-      <MetaLeadSync />
-      <GoogleAdsIntegration />
+      {!isItinOwner && (
+        <>
+          <MetaLeadSync />
+          <GoogleAdsIntegration />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Scale className="h-5 w-5" />
-            Lead Distribution Control
-          </CardTitle>
-          <CardDescription>
-            Set weights for sales employees. Weight 0 = paused (training) — no new leads assigned.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {weights.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No sales employees to configure.</p>
-          ) : (
-            weights.map((w, i) => (
-              <div key={w._id} className="flex flex-wrap items-center gap-4 rounded-lg border p-4">
-                <div className="min-w-[140px] flex-1">
-                  <p className="font-medium">{w.name}</p>
-                  <p className="text-xs text-muted-foreground">{w.email}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs">Weight</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={10}
-                    className="w-20"
-                    value={w.leadAssignmentWeight ?? 1}
-                    onChange={(e) => {
-                      const next = [...weights]
-                      next[i] = { ...w, leadAssignmentWeight: Number(e.target.value) }
-                      setWeights(next)
-                    }}
-                  />
-                  {w.leadAssignmentWeight === 0 && (
-                    <Badge variant="destructive">Paused</Badge>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-          {weights.length > 0 && (
-            <Button onClick={saveWeights}>Save Weights</Button>
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Scale className="h-5 w-5" />
+                Lead Distribution Control
+              </CardTitle>
+              <CardDescription>
+                Set weights for sales employees. Weight 0 = paused (training) — no new leads assigned.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {weights.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No sales employees to configure.</p>
+              ) : (
+                weights.map((w, i) => (
+                  <div key={w._id} className="flex flex-wrap items-center gap-4 rounded-lg border p-4">
+                    <div className="min-w-[140px] flex-1">
+                      <p className="font-medium">{w.name}</p>
+                      <p className="text-xs text-muted-foreground">{w.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">Weight</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={10}
+                        className="w-20"
+                        value={w.leadAssignmentWeight ?? 1}
+                        onChange={(e) => {
+                          const next = [...weights]
+                          next[i] = { ...w, leadAssignmentWeight: Number(e.target.value) }
+                          setWeights(next)
+                        }}
+                      />
+                      {w.leadAssignmentWeight === 0 && (
+                        <Badge variant="destructive">Paused</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+              {weights.length > 0 && (
+                <Button onClick={saveWeights}>Save Weights</Button>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <Card>
         <CardHeader>
           <CardTitle>Team Members</CardTitle>
-          <CardDescription>Manage roles, suspend, password reset, and remove employees.</CardDescription>
+          <CardDescription>
+            {isItinOwner
+              ? 'Manage your itinerary-building teammates — suspend, reset password, or remove.'
+              : 'Manage roles, suspend, password reset, and remove employees.'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <TableShell className="hidden md:block">
@@ -252,13 +272,16 @@ export default function AdminPage() {
                   </TableRow>
                 ) : (
                   users.map((u) => {
-                    const isOwnerRow = u.role === 'admin' && String(u._id) === currentUserId
+                    const isSelfRow = String(u._id) === currentUserId
+                    const isOwnerRow = (u.role === 'admin' || u.role === 'itinerary_only') && isSelfRow
                     return (
                     <TableRow key={String(u._id)}>
                       <TableCell>{u.name}</TableCell>
                       <TableCell>{u.email}</TableCell>
                       <TableCell>
-                        {isOwnerRow ? (
+                        {isItinOwner ? (
+                          <Badge variant="outline">{isSelfRow ? 'You' : 'Itinerary Creator'}</Badge>
+                        ) : isOwnerRow ? (
                           <Badge variant="outline">Owner</Badge>
                         ) : (
                           <Select
@@ -329,7 +352,7 @@ export default function AdminPage() {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Employee</DialogTitle>
+            <DialogTitle>{isItinOwner ? 'Add Teammate' : 'Add Employee'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -347,22 +370,24 @@ export default function AdminPage() {
                 onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
               />
             </div>
-            <div>
-              <Label>Role</Label>
-              <Select value={newUser.role} onValueChange={(role) => setNewUser({ ...newUser, role })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>
-                      {r.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {['agent', 'manager'].includes(newUser.role) && (
+            {!isItinOwner && (
+              <div>
+                <Label>Role</Label>
+                <Select value={newUser.role} onValueChange={(role) => setNewUser({ ...newUser, role })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((r) => (
+                      <SelectItem key={r.value} value={r.value}>
+                        {r.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {!isItinOwner && ['agent', 'manager'].includes(newUser.role) && (
               <div>
                 <Label>Lead Weight</Label>
                 <Input
@@ -377,7 +402,7 @@ export default function AdminPage() {
               </div>
             )}
             <Button className="w-full" onClick={addEmployee}>
-              Add Employee
+              {isItinOwner ? 'Add Teammate' : 'Add Employee'}
             </Button>
           </div>
         </DialogContent>

@@ -1,9 +1,9 @@
 import connectDB from '@/lib/mongodb'
 import AuditLog from '@/models/AuditLog'
-import { authenticate, requireRoles } from '@/lib/middleware'
+import { authenticate, requireOwnerRoles } from '@/lib/middleware'
 import mongoose from 'mongoose'
 
-const OWNER_ROLES = ['admin', 'superadmin']
+const OWNER_ROLES = ['admin', 'superadmin', 'itinerary_only']
 
 /** GET /api/settings/audit?entity=setting_option&category=lead_status&limit=50 */
 export async function GET(request) {
@@ -12,7 +12,7 @@ export async function GET(request) {
     if (authResult.error) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
-    const denied = requireRoles(authResult.user.role, OWNER_ROLES)
+    const denied = requireOwnerRoles(authResult.user, OWNER_ROLES)
     if (denied) return Response.json({ error: denied.error }, { status: denied.status })
 
     await connectDB()

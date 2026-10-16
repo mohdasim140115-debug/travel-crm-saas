@@ -14,6 +14,17 @@ import { canOnlyViewOwnLeads } from '@/lib/permissions'
  * caught in the route and surfaced as 403, not a generic 500. */
 export class SalesEditLockedError extends Error {}
 
+/**
+ * An itinerary-only teammate (added via Team by the owner, not the original
+ * account the super admin created) shares the exact same role as the owner —
+ * `requestedBy` is only set on the teammate, so it's what tells them apart.
+ * The owner sees every itinerary in the workspace (including teammates');
+ * a teammate only ever sees their own, same boundary as Sales.
+ */
+function restrictedToOwnItineraries(authUser) {
+  return canOnlyViewOwnLeads(authUser.role) || (authUser.role === 'itinerary_only' && !!authUser.requestedBy)
+}
+
 /** Same resolution the PDF export uses: the itinerary's own brand if set,
  * otherwise the team's default (or oldest) active brand — so the preview
  * page always has a company to show in its footer. */
@@ -60,7 +71,7 @@ export async function listItineraries(authUser, options = {}) {
   // Sales staff (agent/manager) only ever see itineraries they personally
   // built — not the owner's, not another sales person's — same boundary as
   // leads. Owner/operations/accounts/superadmin still see the whole workspace.
-  if (canOnlyViewOwnLeads(authUser.role)) {
+  if (restrictedToOwnItineraries(authUser)) {
     query.createdBy = authUser.userId
   }
   if (status) query.status = status
@@ -122,7 +133,7 @@ export async function listItineraries(authUser, options = {}) {
 export async function getItineraryFull(id, authUser) {
   // Same ownership boundary as the list — a sales rep hitting another
   // itinerary's URL directly must not bypass the "own only" restriction.
-  const ownerScope = canOnlyViewOwnLeads(authUser.role) ? { createdBy: authUser.userId } : {}
+  const ownerScope = restrictedToOwnItineraries(authUser) ? { createdBy: authUser.userId } : {}
 
   // These 4 queries are independent (days/hotels/activities only need `id`,
   // already known) — fire them together instead of one-at-a-time.
@@ -260,7 +271,7 @@ export async function createItinerary(authUser, body) {
 }
 
 export async function updateItinerary(id, authUser, body) {
-  const ownerScope = canOnlyViewOwnLeads(authUser.role) ? { createdBy: authUser.userId } : {}
+  const ownerScope = restrictedToOwnItineraries(authUser) ? { createdBy: authUser.userId } : {}
   const filter = { _id: id, ...tenantFilter(authUser), ...ownerScope }
 
   // Sales-only gate — checked before anything else so a locked booking can't
@@ -268,7 +279,7 @@ export async function updateItinerary(id, authUser, body) {
   // is just the normal path in, not the only one). Operations/Accounts/Owner
   // are never subject to this; it exists purely to stop Sales, and only
   // applies once the itinerary actually has a booking against it.
-  if (canOnlyViewOwnLeads(authUser.role)) {
+  if (restrictedToOwnItineraries(authUser)) {
     const booking = await Booking.findOne({ itineraryId: id, teamId: authUser.teamId })
       .select('salesEditEnabled')
       .lean()
@@ -365,7 +376,7 @@ async function resyncLinkedBookings(itineraryId, teamId) {
 }
 
 export async function deleteItinerary(id, authUser) {
-  const ownerScope = canOnlyViewOwnLeads(authUser.role) ? { createdBy: authUser.userId } : {}
+  const ownerScope = restrictedToOwnItineraries(authUser) ? { createdBy: authUser.userId } : {}
   const filter = { _id: id, ...tenantFilter(authUser), ...ownerScope }
   const itinerary = await Itinerary.findOneAndDelete(filter)
   if (!itinerary) return null

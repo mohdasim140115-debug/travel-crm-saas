@@ -24,7 +24,10 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['superadmin', 'admin', 'manager', 'agent', 'operations', 'accounts', 'user'],
+      // 'itinerary_only' — a restricted agency owner created by the
+      // platform super admin who can only use the Itinerary Builder and
+      // view their own itineraries; no Leads, Bookings, Settings, etc.
+      enum: ['superadmin', 'admin', 'manager', 'agent', 'operations', 'accounts', 'user', 'itinerary_only'],
       default: 'agent',
     },
     /** Lead distribution weight (0 = paused, e.g. training). Owner configures per sales employee. */

@@ -1,6 +1,6 @@
 import connectDB from '@/lib/mongodb'
 import User from '@/models/User'
-import { authenticate, requireRoles } from '@/lib/middleware'
+import { authenticate, requireOwnerRoles } from '@/lib/middleware'
 import { hashPassword } from '@/lib/auth'
 import { notifyUser } from '@/lib/notify'
 import mongoose from 'mongoose'
@@ -11,9 +11,16 @@ const ROLE_LABELS = {
   operations: 'Operations',
   accounts: 'Accounts',
   admin: 'Owner',
+  itinerary_only: 'Itinerary Creator',
 }
 
 const ASSIGNABLE_ROLES = ['agent', 'manager', 'operations', 'accounts', 'admin']
+
+// An itinerary-only owner has no leads/bookings team to run — the only
+// "team" they can build is more restricted accounts just like their own, so
+// they can split itinerary-building work across people without ever
+// granting access to anything else.
+const TEAM_ROLES = ['superadmin', 'admin', 'itinerary_only']
 
 export async function GET(request) {
   try {
@@ -22,7 +29,7 @@ export async function GET(request) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
 
-    const forbidden = requireRoles(authResult.user.role, ['superadmin', 'admin'])
+    const forbidden = requireOwnerRoles(authResult.user, TEAM_ROLES)
     if (forbidden) {
       return Response.json({ error: forbidden.error }, { status: forbidden.status })
     }
@@ -47,18 +54,23 @@ export async function POST(request) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
 
-    const forbidden = requireRoles(authResult.user.role, ['superadmin', 'admin'])
+    const forbidden = requireOwnerRoles(authResult.user, TEAM_ROLES)
     if (forbidden) {
       return Response.json({ error: forbidden.error }, { status: forbidden.status })
     }
 
     const body = await request.json()
-    const { name, email, password, role = 'agent', leadAssignmentWeight = 1 } = body
+    const isItinOwner = authResult.user.role === 'itinerary_only'
+    let { name, email, password, role = 'agent', leadAssignmentWeight = 1 } = body
+    // An itinerary-only account can only ever add more itinerary-only
+    // accounts — whatever role was posted is ignored, so there's no way to
+    // smuggle in an agent/admin/etc. role from this endpoint.
+    if (isItinOwner) role = 'itinerary_only'
 
     if (!name || !email || !password) {
       return Response.json({ error: 'name, email, password required' }, { status: 400 })
     }
-    if (!ASSIGNABLE_ROLES.includes(role)) {
+    if (!isItinOwner && !ASSIGNABLE_ROLES.includes(role)) {
       return Response.json({ error: 'Invalid role' }, { status: 400 })
     }
 
@@ -72,7 +84,7 @@ export async function POST(request) {
     // Owners can't self-approve staff — the account stays inactive until a
     // super admin reviews it. Super admins creating a user directly need no
     // approval loop.
-    const needsApproval = authResult.user.role === 'admin'
+    const needsApproval = authResult.user.role === 'admin' || isItinOwner
 
     const user = await User.create({
       name,
@@ -137,7 +149,7 @@ export async function PATCH(request) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
 
-    const forbidden = requireRoles(authResult.user.role, ['superadmin', 'admin'])
+    const forbidden = requireOwnerRoles(authResult.user, TEAM_ROLES)
     if (forbidden) {
       return Response.json({ error: forbidden.error }, { status: forbidden.status })
     }
@@ -171,9 +183,9 @@ export async function PATCH(request) {
     // The owner's own account is fixed — no self-demotion, self-suspension or
     // self-block. (Password reset for yourself is still fine and allowed.)
     const isSelf = String(target._id) === String(authResult.user.userId)
-    if (isSelf && target.role === 'admin') {
+    if (isSelf && ['admin', 'itinerary_only'].includes(target.role)) {
       if (role && role !== target.role) {
-        return Response.json({ error: 'You cannot change your own owner role' }, { status: 400 })
+        return Response.json({ error: 'You cannot change your own role' }, { status: 400 })
       }
       if (isActive === false) {
         return Response.json({ error: 'You cannot suspend yourself' }, { status: 400 })
@@ -184,6 +196,11 @@ export async function PATCH(request) {
     }
 
     if (role) {
+      // An itinerary-only account's teammates are always itinerary-only too
+      // — there's nothing else on the team to promote/demote them to.
+      if (authResult.user.role === 'itinerary_only') {
+        return Response.json({ error: 'Cannot change role' }, { status: 403 })
+      }
       const allowed = [...ASSIGNABLE_ROLES, 'superadmin']
       if (authResult.user.role === 'admin' && role === 'superadmin') {
         return Response.json({ error: 'Cannot promote to superadmin' }, { status: 403 })
@@ -230,7 +247,7 @@ export async function DELETE(request) {
       return Response.json({ error: authResult.error }, { status: authResult.status })
     }
 
-    const forbidden = requireRoles(authResult.user.role, ['superadmin', 'admin'])
+    const forbidden = requireOwnerRoles(authResult.user, TEAM_ROLES)
     if (forbidden) {
       return Response.json({ error: forbidden.error }, { status: forbidden.status })
     }
