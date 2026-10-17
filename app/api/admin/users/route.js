@@ -61,7 +61,7 @@ export async function POST(request) {
 
     const body = await request.json()
     const isItinOwner = authResult.user.role === 'itinerary_only'
-    let { name, email, password, role = 'agent', leadAssignmentWeight = 1 } = body
+    let { name, email, password, phone, role = 'agent', leadAssignmentWeight = 1 } = body
     // An itinerary-only account can only ever add more itinerary-only
     // accounts — whatever role was posted is ignored, so there's no way to
     // smuggle in an agent/admin/etc. role from this endpoint.
@@ -89,6 +89,7 @@ export async function POST(request) {
     const user = await User.create({
       name,
       email: normalizedEmail,
+      phone: typeof phone === 'string' && phone.trim() ? phone.trim() : undefined,
       password: await hashPassword(password),
       role,
       teamId: authResult.user.teamId,

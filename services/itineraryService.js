@@ -140,7 +140,7 @@ export async function getItineraryFull(id, authUser) {
   const [itinerary, days, hotels, activities] = await Promise.all([
     Itinerary.findOne({ _id: id, ...tenantFilter(authUser), ...ownerScope })
       .populate('assignedTo', 'name email phone')
-      .populate('createdBy', 'name email')
+      .populate('createdBy', 'name email phone')
       .populate('leadId', 'firstName lastName email phone')
       .lean(),
     ItineraryDay.find({ itineraryId: id }).sort({ sortOrder: 1, dayNumber: 1 }).lean(),

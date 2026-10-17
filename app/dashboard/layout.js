@@ -481,11 +481,6 @@ export default function DashboardLayout({ children }) {
           <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle />
             <NotificationBell />
-            <div className="hidden items-center gap-2 text-xs text-muted-foreground lg:flex">
-              <span className="rounded-full border px-2 py-1">
-                Workspace: {String(user.teamId || '').slice(-6)}
-              </span>
-            </div>
           </div>
         </header>
 

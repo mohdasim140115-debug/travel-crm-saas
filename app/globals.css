@@ -23,7 +23,7 @@ button:not(:disabled),
   }
 }
 .animate-marquee {
-  animation: marquee 28s linear infinite;
+  animation: marquee 100s linear infinite;
 }
 
 :root {

@@ -53,6 +53,7 @@ export default function AdminPage() {
   const [resetOpen, setResetOpen] = useState(null)
   const [newUser, setNewUser] = useState({
     name: '',
+    phone: '',
     email: '',
     password: '',
     role: 'agent',
@@ -132,7 +133,7 @@ export default function AdminPage() {
       const data = await mutateJson('/api/admin/users', { token: token(), body: newUser })
       toast.success(data.message || 'Employee added')
       setAddOpen(false)
-      setNewUser({ name: '', email: '', password: '', role: 'agent', leadAssignmentWeight: 1 })
+      setNewUser({ name: '', email: '', phone: '', password: '', role: 'agent', leadAssignmentWeight: 1 })
       fetchAll()
     } catch (e) {
       toast.error(e.message || 'Failed to add employee')
@@ -362,6 +363,10 @@ export default function AdminPage() {
             <div>
               <Label>Email</Label>
               <Input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input value={newUser.phone} onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })} />
             </div>
             <div>
               <Label>Password</Label>

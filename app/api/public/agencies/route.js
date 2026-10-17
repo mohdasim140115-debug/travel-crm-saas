@@ -32,7 +32,10 @@ export async function GET() {
       if (agencies.length >= 40) break
     }
 
-    return Response.json({ agencies })
+    return Response.json(
+      { agencies },
+      { headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400' } }
+    )
   } catch (error) {
     console.error('Public agencies list error:', error)
     return Response.json({ agencies: [] })
