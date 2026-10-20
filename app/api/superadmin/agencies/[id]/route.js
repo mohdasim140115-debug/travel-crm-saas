@@ -60,8 +60,16 @@ export async function GET(request, { params }) {
       ['agent', 'manager', 'operations', 'accounts'].includes(u.role)
     ).length
 
+    // The encrypted AI key never leaves the server — only whether one is set.
+    const { ai, ...agency } = team
+    agency.ai = {
+      enabled: Boolean(ai?.anthropicKeyEnc),
+      keyLast4: ai?.keyLast4 || null,
+      keySavedAt: ai?.keySavedAt || null,
+    }
+
     return Response.json({
-      agency: team,
+      agency,
       users,
       brands,
       plans,
@@ -230,7 +238,9 @@ export async function PATCH(request, { params }) {
     })
 
     const limits = await resolveTeamLimits(team)
-    return Response.json({ message: 'Agency updated', agency: team.toObject(), limits })
+    const { ai, ...updated } = team.toObject()
+    updated.ai = { enabled: Boolean(ai?.anthropicKeyEnc), keyLast4: ai?.keyLast4 || null, keySavedAt: ai?.keySavedAt || null }
+    return Response.json({ message: 'Agency updated', agency: updated, limits })
   } catch (error) {
     console.error('Superadmin agency update error:', error)
     return Response.json({ error: 'Internal server error' }, { status: 500 })

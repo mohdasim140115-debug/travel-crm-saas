@@ -170,6 +170,18 @@ const teamSchema = new mongoose.Schema(
       capiTokenSavedAt: Date,
     },
 
+    /**
+     * AI Itinerary Builder — bring-your-own-key. The agency's own Anthropic
+     * API key (set by the platform super admin), so AI usage bills to the
+     * agency's Anthropic account. AES-256-GCM encrypted at rest, never sent to
+     * the browser; only the last 4 characters are shown back.
+     */
+    ai: {
+      anthropicKeyEnc: String,
+      keyLast4: String,
+      keySavedAt: Date,
+    },
+
     settings: {
       currency: {
         type: String,

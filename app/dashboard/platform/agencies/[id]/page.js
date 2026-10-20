@@ -48,6 +48,7 @@ import { TableShell } from '@/components/crm/TableShell'
 import { guardSuperadmin, saFetch, formatINR, formatDate } from '@/lib/superadmin-client'
 import { startImpersonation } from '@/lib/impersonation'
 import { ROLE_LABELS } from '@/lib/permissions-client'
+import { AgencyAiKeyCard } from '@/components/platform/AgencyAiKeyCard'
 
 const NUMERIC_LIMITS = [
   { key: 'maxBrands', label: 'Max brands', usageKey: 'brands' },
@@ -477,6 +478,8 @@ export default function AgencyDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AgencyAiKeyCard agencyId={agencyId} ai={data?.agency?.ai} onChange={load} />
 
       <Card>
         <CardHeader>

@@ -563,6 +563,7 @@ function HomeContent() {
             {
               heading: 'Smart Itinerary Builder',
               items: [
+                { icon: Sparkles, title: 'AI Itinerary Builder', badge: 'New', feature: 'Itinerary Builder' },
                 { icon: Route, title: 'Day-wise Itinerary Builder', feature: 'Itinerary Builder' },
                 { icon: Calculator, title: 'Live Package Costing', feature: 'Itinerary Builder' },
                 { icon: Palette, title: 'Branded PDF Themes', badge: 'New', feature: 'Itinerary Builder' },
@@ -641,6 +642,7 @@ function HomeContent() {
         {
           heading: 'Enhance with add-ons',
           items: [
+            { title: 'AI Itinerary Builder', text: 'Draft a full day-wise itinerary with hotels and transport from your own rates in one click.', badge: 'Newly Launched!', feature: 'Itinerary Builder' },
             { title: 'Meta & Google Ads Leads', text: 'Ad enquiries flow straight into your CRM, auto-assigned.', badge: 'Popular' },
             { title: 'WhatsApp Sharing', text: 'Send itineraries and updates to clients on WhatsApp in a click.' },
             { title: 'Premium PDF Themes', text: 'Classic, Ocean Blue and Emerald Luxury itinerary designs.', badge: 'New' },

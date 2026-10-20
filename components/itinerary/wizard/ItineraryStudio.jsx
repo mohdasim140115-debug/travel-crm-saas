@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import WizardHeader from './WizardHeader'
 import WizardStepper from './WizardStepper'
 import WizardFooter from './WizardFooter'
 import PdfTemplateModal from './PdfTemplateModal'
+import AiGenerateDialog from './AiGenerateDialog'
 import StepDetails from './steps/StepDetails'
 import StepVisuals from './steps/StepVisuals'
 import StepPlan from './steps/StepPlan'
@@ -61,6 +62,23 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
       setIsItineraryOnly(false)
     }
   }, [])
+
+  // AI Itinerary Builder — only offered when this agency has its own AI key on file.
+  const [aiEnabled, setAiEnabled] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
+  useEffect(() => {
+    fetch('/api/ai/itinerary', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then((r) => (r.ok ? r.json() : { enabled: false }))
+      .then((d) => setAiEnabled(Boolean(d.enabled)))
+      .catch(() => setAiEnabled(false))
+  }, [])
+
+  const applyAiDraft = (patch, warnings) => {
+    setForm((prev) => ({ ...prev, ...patch }))
+    setShowPlanErrors(false)
+    toast.success('AI draft ready — review each step, then save')
+    warnings.forEach((w) => toast.warning(w))
+  }
 
   // Continuing to the next step used to leave the page scrolled wherever the
   // previous step's Continue button happened to be — the new step then
@@ -359,6 +377,21 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
         onCommit={handleCommit}
         saving={saving}
       />
+      {aiEnabled && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-linear-to-r from-primary/10 via-primary/5 to-transparent p-3 sm:p-4">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-sm font-semibold">
+              <Sparkles className="h-4 w-4 text-primary" /> AI Itinerary Builder
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Draft the day-wise plan, hotels and transport in one click, then review and edit.
+            </p>
+          </div>
+          <Button type="button" onClick={() => setAiOpen(true)} className="shrink-0 gap-1.5">
+            <Sparkles className="h-4 w-4" /> Generate with AI
+          </Button>
+        </div>
+      )}
       <WizardStepper
         currentStep={step}
         // Editing a saved itinerary: jump straight to whichever section needs
@@ -378,6 +411,7 @@ export default function ItineraryStudio({ itineraryId = null, initialData = null
         nextLabel={step >= STUDIO_STEPS.length ? 'Finalize & export' : 'Continue'}
         saving={saving}
       />
+      <AiGenerateDialog open={aiOpen} onOpenChange={setAiOpen} form={form} onApply={applyAiDraft} />
       <PdfTemplateModal
         open={templateModalOpen}
         onOpenChange={setTemplateModalOpen}
