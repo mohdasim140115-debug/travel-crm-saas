@@ -201,7 +201,7 @@ export function MasterTable({ category }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 sm:max-w-xs">
+        <div className="relative min-w-48 flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search..."

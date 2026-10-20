@@ -653,7 +653,7 @@ function LeadsContent() {
       {/* Filters */}
       <Card className="!mb-0 !rounded-t-2xl !rounded-b-none !shadow-none p-3 sm:p-4 hover:!transform-none">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full min-w-0 sm:w-auto sm:flex-1">
+          <div className="relative w-full sm:w-auto sm:min-w-56 sm:flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search..."

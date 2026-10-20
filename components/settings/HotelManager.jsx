@@ -340,7 +340,7 @@ export function HotelManager({ readOnly = false } = {}) {
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative w-full min-w-0 sm:w-auto sm:max-w-xs sm:flex-1">
+        <div className="relative w-full sm:w-auto sm:min-w-56 sm:max-w-xs sm:flex-1">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search saved hotels..."
