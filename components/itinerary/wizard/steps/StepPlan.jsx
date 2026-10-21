@@ -39,7 +39,8 @@ import {
 import { cn } from '@/lib/utils'
 import { toCompressedDataUrl } from '@/lib/imageCompress'
 import { DEFAULT_DAY } from '@/modules/itinerary/constants'
-import { PDF_THEME_OPTIONS } from '@/modules/itinerary/pdfThemes'
+import { PDF_THEME_OPTIONS, isPdfThemeUsable } from '@/modules/itinerary/pdfThemes'
+import { useUnlockedPdfThemes } from '@/hooks/useUnlockedPdfThemes'
 
 const TODAY_START = (() => {
   const d = new Date()
@@ -117,9 +118,10 @@ function htmlToMarkers(root) {
 export default function StepPlan({ form, update, showErrors = false }) {
   const days = form.days || []
   const theme = form.pdfTheme || 'classic'
+  const unlockedThemes = useUnlockedPdfThemes()
   // Ocean Blue and Emerald Luxury both show a per-day photo in their
   // day-wise timeline — Classic Red doesn't.
-  const supportsDayImages = theme === 'ocean' || theme === 'emerald'
+  const supportsDayImages = theme === 'ocean' || theme === 'emerald' || theme === 'sunset'
   const [templates, setTemplates] = useState([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
   const [templatePopoverOpen, setTemplatePopoverOpen] = useState({})
@@ -361,7 +363,7 @@ export default function StepPlan({ form, update, showErrors = false }) {
         <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
           Design theme:
         </span>
-        {PDF_THEME_OPTIONS.filter((t) => t.available).map((t) => (
+        {PDF_THEME_OPTIONS.filter((t) => isPdfThemeUsable(t.id, unlockedThemes)).map((t) => (
           <button
             key={t.id}
             type="button"

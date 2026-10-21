@@ -70,10 +70,20 @@ export async function PUT(request) {
 
     const simpleFields = [
       'logo', 'website', 'phone', 'email', 'address', 'address2',
-      'metaLink', 'scanner1',
+      'metaLink', 'scanner1', 'tagline',
     ]
     for (const f of simpleFields) {
       if (body[f] !== undefined) company[f] = body[f]
+    }
+
+    if (body.socials !== undefined) {
+      const s = body.socials || {}
+      company.socials = {
+        facebook: String(s.facebook || '').trim(),
+        instagram: String(s.instagram || '').trim(),
+        google: String(s.google || '').trim(),
+        youtube: String(s.youtube || '').trim(),
+      }
     }
 
     if (body.bankDetails !== undefined) {

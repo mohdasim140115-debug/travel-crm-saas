@@ -5,6 +5,15 @@
  * server-only Node deps. `id` values here must match PDF_THEMES ids in
  * lib/pdf/itineraryPdf.js for the ones marked `available`.
  */
+/** Can this agency export with theme `id`? Premium themes need unlocking. */
+export function isPdfThemeUsable(id, unlocked = []) {
+  const t = PDF_THEME_OPTIONS.find((o) => o.id === id)
+  if (!t || !t.available) return false
+  return !t.premium || unlocked.includes(id)
+}
+
+export const PREMIUM_PDF_THEMES = () => PDF_THEME_OPTIONS.filter((t) => t.premium && t.available)
+
 export const PDF_THEME_OPTIONS = [
   {
     id: 'classic',
@@ -33,10 +42,12 @@ export const PDF_THEME_OPTIONS = [
   {
     id: 'sunset',
     label: 'Sunset Coral',
-    description: 'Coming soon',
-    primary: '#f97316',
-    secondary: '#fb923c',
-    available: false,
+    description: 'Clean white brochure with coral accents — photo-led and personal.',
+    primary: '#E8603C',
+    secondary: '#F59E6C',
+    available: true,
+    // Premium: off for every agency until the platform super admin unlocks it.
+    premium: true,
   },
   {
     id: 'midnight',

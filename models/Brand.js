@@ -30,6 +30,22 @@ const brandSchema = new mongoose.Schema(
     scanner1: String,
     /** Background image shown behind the final contact/payment page of the itinerary PDF. */
     contactBackground: String,
+    /** Short line under the brand name on PDFs, e.g. "The Soul of Kashmir". */
+    tagline: String,
+    /** Social profile links — shown as clickable icons on itinerary PDFs.
+     * WhatsApp uses the brand phone, so it has no field of its own. */
+    socials: {
+      facebook: String,
+      instagram: String,
+      google: String,
+      youtube: String,
+    },
+    /** "Our associate hotels & houseboats" logo wall on itinerary PDFs.
+     * Saved one at a time (small compressed images) so no single request
+     * carries the whole wall. */
+    associateLogos: [{ url: String }],
+    /** "Registered with" badge, e.g. the state tourism department logo. */
+    registeredLogo: String,
     /** Cover-image picker shown in the itinerary builder — capped at 4 by the settings UI/API. */
     gallery: [
       {

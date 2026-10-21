@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, Upload, X, Building2, QrCode, MapPin, Landmark } from 'lucide-react'
+import { Loader2, Upload, X, Building2, QrCode, MapPin, Landmark, Share2, Images, BadgeCheck, Plus } from 'lucide-react'
 
 const token = () => (typeof window !== 'undefined' ? localStorage.getItem('token') : null)
 
@@ -140,6 +140,35 @@ async function compressToPng(file, maxBytes = 300 * 1024, startDim = 900) {
   return out // best effort after max shrink attempts
 }
 
+/**
+ * Logo-wall images: any size in → a small JPEG data-URL out (≤ maxBytes,
+ * ~10 KB). JPEG on a white background keeps a logo far crisper than PNG at
+ * this size, and the PDF draws these on white anyway. Lowers quality first,
+ * then the dimensions, until it fits.
+ */
+async function compressLogoToJpeg(file, maxBytes = 10 * 1024, startDim = 320) {
+  const img = await loadImage(await readAsDataURL(file))
+  let scale = Math.min(1, startDim / Math.max(img.width, img.height))
+  let out = ''
+  for (let i = 0; i < 10; i++) {
+    const cw = Math.max(1, Math.round(img.width * scale))
+    const ch = Math.max(1, Math.round(img.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = cw
+    canvas.height = ch
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, cw, ch)
+    ctx.drawImage(img, 0, 0, cw, ch)
+    for (const q of [0.85, 0.75, 0.65, 0.55, 0.45]) {
+      out = canvas.toDataURL('image/jpeg', q)
+      if (dataUrlBytes(out) <= maxBytes) return out
+    }
+    scale *= 0.8
+  }
+  return out // best effort after max shrink attempts
+}
+
 const EMPTY = {
   name: '',
   logo: '',
@@ -150,8 +179,19 @@ const EMPTY = {
   address: '',
   address2: '',
   scanner1: '',
+  tagline: '',
+  socials: { facebook: '', instagram: '', google: '', youtube: '' },
   bankDetails: { bankName: '', accountName: '', accountNumber: '', ifscCode: '' },
 }
+
+const LOGOS_URL = '/api/settings/company/logos'
+
+const SOCIAL_FIELDS = [
+  { key: 'facebook', label: 'Facebook page', placeholder: 'https://facebook.com/yourpage' },
+  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourhandle' },
+  { key: 'google', label: 'Google reviews / Maps', placeholder: 'https://g.page/r/...' },
+  { key: 'youtube', label: 'YouTube channel', placeholder: 'https://youtube.com/@yourchannel' },
+]
 
 export function CompanyProfile() {
   const [form, setForm] = useState(EMPTY)
@@ -159,6 +199,13 @@ export function CompanyProfile() {
   const [saving, setSaving] = useState(false)
   const fileRef = useRef(null)
   const scanner1Ref = useRef(null)
+  const associateRef = useRef(null)
+  const registeredRef = useRef(null)
+  // Saved instantly through their own endpoint (one image per request), not
+  // with the main Save button — a wall of logos would overflow one request.
+  const [associateLogos, setAssociateLogos] = useState([])
+  const [registeredLogo, setRegisteredLogo] = useState('')
+  const [logoBusy, setLogoBusy] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -179,6 +226,13 @@ export function CompanyProfile() {
             address: c.address || '',
             address2: c.address2 || '',
             scanner1: c.scanner1 || '',
+            tagline: c.tagline || '',
+            socials: {
+              facebook: c.socials?.facebook || '',
+              instagram: c.socials?.instagram || '',
+              google: c.socials?.google || '',
+              youtube: c.socials?.youtube || '',
+            },
             bankDetails: {
               bankName: c.bankDetails?.bankName || '',
               accountName: c.bankDetails?.accountName || '',
@@ -186,6 +240,8 @@ export function CompanyProfile() {
               ifscCode: c.bankDetails?.ifscCode || '',
             },
           })
+          setAssociateLogos(c.associateLogos || [])
+          setRegisteredLogo(c.registeredLogo || '')
         } else {
           toast.error(data.error || 'Failed to load company')
         }
@@ -217,6 +273,65 @@ export function CompanyProfile() {
       toast.error('Could not process this image')
     }
     e.target.value = '' // allow re-selecting the same file
+  }
+
+  const setSocial = (patch) => setForm((prev) => ({ ...prev, socials: { ...prev.socials, ...patch } }))
+
+  const logoRequest = async (method, body, query = '') => {
+    const res = await fetch(`${LOGOS_URL}${query}`, {
+      method,
+      headers: { Authorization: `Bearer ${token()}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || 'Could not save the logo')
+    setAssociateLogos(data.associateLogos || [])
+    setRegisteredLogo(data.registeredLogo || '')
+  }
+
+  const onAssociateFiles = async (e) => {
+    const files = Array.from(e.target.files || []).filter((file) => file.type.startsWith('image/'))
+    e.target.value = ''
+    if (!files.length) return
+    setLogoBusy(true)
+    try {
+      for (const file of files) {
+        const url = await compressLogoToJpeg(file)
+        await logoRequest('POST', { kind: 'associate', url })
+      }
+      toast.success(files.length > 1 ? `${files.length} logos added` : 'Logo added')
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setLogoBusy(false)
+    }
+  }
+
+  const onRegisteredFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !file.type.startsWith('image/')) return
+    setLogoBusy(true)
+    try {
+      const url = await compressLogoToJpeg(file)
+      await logoRequest('POST', { kind: 'registered', url })
+      toast.success('Registered-with logo saved')
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setLogoBusy(false)
+    }
+  }
+
+  const removeLogo = async (kind, id) => {
+    setLogoBusy(true)
+    try {
+      await logoRequest('DELETE', null, `?kind=${kind}${id ? `&id=${id}` : ''}`)
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setLogoBusy(false)
+    }
   }
 
   const save = async () => {
@@ -388,6 +503,95 @@ export function CompanyProfile() {
         </div>
       </div>
 
+      </div>
+
+      {/* PDF branding: tagline + social links */}
+      <div className="space-y-3 rounded-xl border bg-card/60 p-3 shadow-sm sm:p-4">
+        <div>
+          <h4 className="flex items-center gap-2 text-sm font-semibold"><span className="h-4 w-1 rounded-full bg-primary" /><Share2 className="h-4 w-4 text-primary" /> Tagline &amp; social links</h4>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Shown under the cover photo of the Sunset Coral PDF as clickable icons. WhatsApp uses your phone number above.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Tagline</Label>
+            <Input value={form.tagline} onChange={(e) => set({ tagline: e.target.value })} placeholder="e.g. The Soul of Kashmir" />
+          </div>
+          {SOCIAL_FIELDS.map((s) => (
+            <div key={s.key} className="space-y-1.5">
+              <Label>{s.label}</Label>
+              <Input value={form.socials[s.key]} onChange={(e) => setSocial({ [s.key]: e.target.value })} placeholder={s.placeholder} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Associate hotels + registered-with logos (saved instantly) */}
+      <div className="space-y-4 rounded-xl border bg-card/60 p-3 shadow-sm sm:p-4">
+        <div>
+          <h4 className="flex items-center gap-2 text-sm font-semibold"><span className="h-4 w-1 rounded-full bg-primary" /><Images className="h-4 w-4 text-primary" /> Associate hotels &amp; registered with</h4>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Logos shown under the cover photo of the Sunset Coral PDF. These save instantly — no need to press Save.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Our associate hotels &amp; houseboats ({associateLogos.length})</Label>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
+            {associateLogos.map((l) => (
+              <div key={l._id} className="relative flex h-16 items-center justify-center rounded-lg border bg-white p-1.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={l.url} alt="Associate logo" className="h-full w-full object-contain" />
+                <button
+                  type="button"
+                  onClick={() => removeLogo('associate', l._id)}
+                  disabled={logoBusy}
+                  className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow"
+                  aria-label="Remove logo"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => associateRef.current?.click()}
+              disabled={logoBusy}
+              className="flex h-16 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed text-xs text-muted-foreground hover:bg-secondary"
+            >
+              {logoBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Add logos
+            </button>
+          </div>
+          <input ref={associateRef} type="file" accept="image/*" multiple className="hidden" onChange={onAssociateFiles} />
+          <p className="text-xs text-muted-foreground">You can pick several images at once — any size, each is auto-compressed to about 10 KB.</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="flex items-center gap-1.5"><BadgeCheck className="h-4 w-4 text-primary" /> Registered with (e.g. tourism department logo)</Label>
+          <div className="flex items-center gap-3">
+            <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-white p-1.5">
+              {registeredLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={registeredLogo} alt="Registered with" className="h-full w-full object-contain" />
+              ) : (
+                <BadgeCheck className="h-7 w-7 text-muted-foreground" />
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" disabled={logoBusy} onClick={() => registeredRef.current?.click()}>
+                <Upload className="mr-1 h-4 w-4" /> Upload
+              </Button>
+              {registeredLogo && (
+                <Button size="sm" variant="ghost" disabled={logoBusy} onClick={() => removeLogo('registered')}>
+                  <X className="mr-1 h-4 w-4" /> Remove
+                </Button>
+              )}
+            </div>
+            <input ref={registeredRef} type="file" accept="image/*" className="hidden" onChange={onRegisteredFile} />
+          </div>
+        </div>
       </div>
 
       {/* Bank details */}

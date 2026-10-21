@@ -1,6 +1,8 @@
 import connectDB from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import Brand from '@/models/Brand'
+import Team from '@/models/Team'
+import { isPdfThemeUsable } from '@/modules/itinerary/pdfThemes'
 import { authenticate } from '@/lib/middleware'
 import { getItineraryFull } from '@/services/itineraryService'
 import { buildItineraryPdf } from '@/lib/pdf/itineraryPdf'
@@ -44,13 +46,20 @@ export async function GET(request, { params }) {
         .lean()
     }
 
+    // A premium design the agency hasn't had unlocked falls back to Classic.
+    let pdfTheme = theme || result.itinerary.pdfTheme || 'classic'
+    if (!isPdfThemeUsable(pdfTheme)) {
+      const team = await Team.findById(authResult.user.teamId).select('unlockedPdfThemes').lean()
+      if (!isPdfThemeUsable(pdfTheme, team?.unlockedPdfThemes || [])) pdfTheme = 'classic'
+    }
+
     const buffer = await buildItineraryPdf({
       itinerary: result.itinerary,
       days: result.days,
       activities: result.activities || [],
       hotels: result.hotels || [],
       brand: brand || { name: 'Travel Agency' },
-      theme: theme || result.itinerary.pdfTheme,
+      theme: pdfTheme,
     })
 
     const filename = `${(result.itinerary.customerName || result.itinerary.tripName || 'itinerary').replace(/[^a-z0-9]/gi, '_')}.pdf`

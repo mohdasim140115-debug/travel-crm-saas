@@ -49,6 +49,7 @@ import { guardSuperadmin, saFetch, formatINR, formatDate } from '@/lib/superadmi
 import { startImpersonation } from '@/lib/impersonation'
 import { ROLE_LABELS } from '@/lib/permissions-client'
 import { AgencyAiKeyCard } from '@/components/platform/AgencyAiKeyCard'
+import { AgencyPdfThemesCard } from '@/components/platform/AgencyPdfThemesCard'
 
 const NUMERIC_LIMITS = [
   { key: 'maxBrands', label: 'Max brands', usageKey: 'brands' },
@@ -480,6 +481,8 @@ export default function AgencyDetailPage() {
       </div>
 
       <AgencyAiKeyCard agencyId={agencyId} ai={data?.agency?.ai} onChange={load} />
+
+      <AgencyPdfThemesCard agencyId={agencyId} unlocked={data?.agency?.unlockedPdfThemes || []} onChange={load} />
 
       <Card>
         <CardHeader>

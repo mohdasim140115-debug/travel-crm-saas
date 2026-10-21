@@ -17,7 +17,8 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { toCompressedDataUrl } from '@/lib/imageCompress'
-import { PDF_THEME_OPTIONS } from '@/modules/itinerary/pdfThemes'
+import { PDF_THEME_OPTIONS, isPdfThemeUsable } from '@/modules/itinerary/pdfThemes'
+import { useUnlockedPdfThemes } from '@/hooks/useUnlockedPdfThemes'
 
 /** Ocean Blue's and Emerald Luxury's day-wise timelines each show a photo
  * beside every day — picked here, right after choosing the theme, either
@@ -160,14 +161,17 @@ function OceanDayPhotos({ form, update }) {
 }
 
 export default function PdfTemplateModal({ open, onOpenChange, onConfirm, generating, form, update }) {
+  const unlocked = useUnlockedPdfThemes()
+  const usable = (id) => isPdfThemeUsable(id, unlocked)
   const [selected, setSelected] = useState(form?.pdfTheme || 'classic')
 
   // Keep in sync with a theme already picked earlier (e.g. in the Day-wise
-  // Plan step) each time this modal is opened.
+  // Plan step) each time this modal is opened — falling back to Classic if
+  // that design is a premium one this agency doesn't have unlocked.
   useEffect(() => {
-    if (open) setSelected(form?.pdfTheme || 'classic')
+    if (open) setSelected(usable(form?.pdfTheme || 'classic') ? form?.pdfTheme || 'classic' : 'classic')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, unlocked])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -182,17 +186,19 @@ export default function PdfTemplateModal({ open, onOpenChange, onConfirm, genera
         <div className="space-y-4 overflow-y-auto pr-1">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {PDF_THEME_OPTIONS.map((t) => {
-              const active = selected === t.id
+              const canUse = usable(t.id)
+              const premiumLocked = t.available && t.premium && !canUse
+              const active = selected === t.id && canUse
               return (
                 <button
                   key={t.id}
                   type="button"
-                  disabled={!t.available}
+                  disabled={!canUse}
                   onClick={() => setSelected(t.id)}
                   className={cn(
                     'relative flex flex-col overflow-hidden rounded-xl border text-left transition-all',
                     active ? 'border-transparent ring-2 ring-offset-2 ring-offset-background' : 'border-border/60 hover:border-border',
-                    !t.available && 'cursor-not-allowed opacity-50'
+                    !canUse && 'cursor-not-allowed opacity-50'
                   )}
                   style={active ? { '--tw-ring-color': t.primary } : undefined}
                 >
@@ -202,9 +208,11 @@ export default function PdfTemplateModal({ open, onOpenChange, onConfirm, genera
                   />
                   <div className="space-y-0.5 p-2.5">
                     <p className="text-xs font-semibold">{t.label}</p>
-                    <p className="truncate text-[10px] text-muted-foreground">{t.description}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {premiumLocked ? 'Premium — ask your admin to unlock' : t.description}
+                    </p>
                   </div>
-                  {active && t.available && (
+                  {active && (
                     <span
                       className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full text-white shadow-sm"
                       style={{ backgroundColor: t.primary }}
@@ -212,7 +220,7 @@ export default function PdfTemplateModal({ open, onOpenChange, onConfirm, genera
                       <Check className="h-3 w-3" />
                     </span>
                   )}
-                  {!t.available && (
+                  {!canUse && (
                     <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted text-muted-foreground">
                       <Lock className="h-3 w-3" />
                     </span>
@@ -225,7 +233,7 @@ export default function PdfTemplateModal({ open, onOpenChange, onConfirm, genera
           {/* Ocean Blue / Emerald Luxury only — pick a photo for each day
            * right here, before generating, so the PDF's day-wise timeline
            * has them. */}
-          {(selected === 'ocean' || selected === 'emerald') && form && update && (
+          {(selected === 'ocean' || selected === 'emerald' || selected === 'sunset') && form && update && (
             <OceanDayPhotos form={form} update={update} />
           )}
         </div>

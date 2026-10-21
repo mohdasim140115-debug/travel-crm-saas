@@ -182,6 +182,10 @@ const teamSchema = new mongoose.Schema(
       keySavedAt: Date,
     },
 
+    /** Premium PDF designs (e.g. 'sunset') the platform super admin has
+     * unlocked for this agency. Non-premium designs are always available. */
+    unlockedPdfThemes: [String],
+
     settings: {
       currency: {
         type: String,
