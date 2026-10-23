@@ -3,10 +3,10 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, FileText, Upload, Loader2, ChevronsUpDown, Check, Search } from 'lucide-react'
+import { Plus, FileText, Upload, Loader2, ChevronsUpDown, Check, Search, Wallet, PlaneTakeoff, PlaneLanding, CalendarClock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -434,13 +434,45 @@ function InvoicesPageInner() {
         </Button>
       </div>
 
+      {/* Filter tiles — click one to filter the table below. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {[
+          { key: 'all', label: 'All clients', count: groupedInvoices.length, icon: FileText, tone: '!bg-sky-500 !border-sky-500 shadow-sky-500/30', ring: 'ring-sky-300' },
+          { key: 'pending', label: 'Pending payments', count: groupedInvoices.filter(isPending).length, icon: Wallet, tone: '!bg-rose-500 !border-rose-500 shadow-rose-500/30', ring: 'ring-rose-300' },
+          { key: 'ongoing', label: 'Ongoing clients', count: groupedInvoices.filter((g) => g.tripStage === 'ongoing').length, icon: PlaneTakeoff, tone: '!bg-emerald-500 !border-emerald-500 shadow-emerald-500/30', ring: 'ring-emerald-300' },
+          { key: 'upcoming', label: 'Upcoming clients', count: groupedInvoices.filter((g) => g.tripStage === 'upcoming').length, icon: CalendarClock, tone: '!bg-amber-500 !border-amber-500 shadow-amber-500/30', ring: 'ring-amber-300' },
+          { key: 'tomorrow', label: 'Arriving tomorrow', count: groupedInvoices.filter((g) => g.arrivingTomorrow).length, icon: PlaneLanding, tone: '!bg-violet-500 !border-violet-500 shadow-violet-500/30', ring: 'ring-violet-300' },
+        ].map((t) => {
+          const Icon = t.icon
+          const active = clientFilter === t.key
+          return (
+            <button key={t.key} type="button" onClick={() => setClientFilter(t.key)} className="text-left">
+              <Card
+                className={`gap-0 !rounded-sm !bg-none p-3 shadow-lg transition-transform duration-200 hover:-translate-y-0.5 ${t.tone} ${
+                  active ? `ring-4 ring-offset-2 ring-offset-background ${t.ring}` : 'opacity-90'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/25 text-white">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold leading-tight tabular-nums text-white">{t.count}</p>
+                    <p className="truncate text-xs text-white/80">{t.label}</p>
+                  </div>
+                </div>
+              </Card>
+            </button>
+          )
+        })}
+      </div>
+
       <Card className="border-border/60 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
             All invoices
           </CardTitle>
-          <CardDescription>{visibleInvoices.length} client(s)</CardDescription>
           <div className="relative pt-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -449,25 +481,6 @@ function InvoicesPageInner() {
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
-          </div>
-          <div className="scroll-hover-thin flex flex-nowrap gap-2 overflow-x-auto pt-1 pb-1">
-            {[
-              { key: 'all', label: 'All' },
-              { key: 'pending', label: 'Pending Payments' },
-              { key: 'ongoing', label: 'Ongoing Clients' },
-              { key: 'upcoming', label: 'Upcoming Clients' },
-              { key: 'tomorrow', label: 'Arriving Tomorrow' },
-            ].map((f) => (
-              <Button
-                key={f.key}
-                size="sm"
-                variant={clientFilter === f.key ? 'default' : 'outline'}
-                className="shrink-0"
-                onClick={() => setClientFilter(f.key)}
-              >
-                {f.label}
-              </Button>
-            ))}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

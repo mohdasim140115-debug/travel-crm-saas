@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Trash2, Edit2, Eye, Filter, ArrowUpDown, MessageSquare, Phone, Mail, Loader2, Users, Bell, Calendar as CalendarIcon, X, User, Globe, UserCheck, Clock, UserX } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, Eye, Filter, ArrowUpDown, MessageSquare, Phone, Mail, Loader2, Users, Bell, Calendar as CalendarIcon, X, User, Globe, UserCheck, Clock, UserX, UserPlus } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon'
 import { FacebookIcon, GoogleIcon, InstagramIcon } from '@/components/icons/SourceIcons'
 import { toast } from 'sonner'
@@ -593,14 +593,11 @@ function LeadsContent() {
     .reduce((sum, s) => sum + (statusCounts[s.key] || 0), 0)
 
   const STAT_TILES = [
-    ...(isOwner
-      ? [
-          { label: 'All leads', value: allLeadsCount, icon: Users, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-sky-500 !border-sky-500 shadow-lg shadow-sky-500/30' },
-          { label: 'Contacted', value: statusCounts.contacted || 0, icon: UserCheck, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-emerald-500 !border-emerald-500 shadow-lg shadow-emerald-500/30' },
-          { label: 'Pending follow-ups', value: headerExtra.pending, icon: Clock, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-amber-500 !border-amber-500 shadow-lg shadow-amber-500/30' },
-        ]
-      : []),
-    ...(isOwner && notRespondingCount
+    { label: 'All leads', value: allLeadsCount, icon: Users, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-sky-500 !border-sky-500 shadow-lg shadow-sky-500/30' },
+    { label: 'New leads', value: statusCounts.new || 0, icon: UserPlus, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-indigo-500 !border-indigo-500 shadow-lg shadow-indigo-500/30' },
+    { label: 'Contacted', value: statusCounts.contacted || 0, icon: UserCheck, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-emerald-500 !border-emerald-500 shadow-lg shadow-emerald-500/30' },
+    { label: 'Pending follow-ups', value: headerExtra.pending, icon: Clock, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-amber-500 !border-amber-500 shadow-lg shadow-amber-500/30' },
+    ...(notRespondingCount
       ? [{ label: 'Not responding', value: notRespondingCount, icon: Bell, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-rose-500 !border-rose-500 shadow-lg shadow-rose-500/30' }]
       : []),
     ...(canAssign
@@ -623,7 +620,7 @@ function LeadsContent() {
        * period-over-period history computed anywhere for leads to honestly
        * show a "+12%" badge. */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className={`grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 ${STAT_TILES.length >= 6 ? 'lg:grid-cols-6' : 'lg:grid-cols-5'}`}>
           {STAT_TILES.map((t) => {
             const Icon = t.icon
             return (

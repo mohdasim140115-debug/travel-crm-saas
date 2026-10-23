@@ -46,6 +46,11 @@ const brandSchema = new mongoose.Schema(
     associateLogos: [{ url: String }],
     /** "Registered with" badge, e.g. the state tourism department logo. */
     registeredLogo: String,
+    /** Credentials shown in the Sunset Coral PDF footer. */
+    googleRating: { type: Number, min: 0, max: 5 },
+    approvedBy: String,
+    licenseNo: String,
+    gstin: String,
     /** Cover-image picker shown in the itinerary builder — capped at 4 by the settings UI/API. */
     gallery: [
       {

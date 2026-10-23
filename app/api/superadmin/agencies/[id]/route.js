@@ -119,10 +119,13 @@ export async function PATCH(request, { params }) {
     // Renew — push access out another calendar month from whichever is later:
     // right now, or the current expiry (so renewing early doesn't waste the
     // time still left). Also flips the agency back on if it had lapsed.
-    const isRenewal = body.renew === true
+    // `restart` instead starts a fresh month from today, discarding whatever
+    // time was left (e.g. an expiry that was set too far out by mistake).
+    const isRestart = body.restart === true
+    const isRenewal = body.renew === true || isRestart
     if (isRenewal) {
       const base =
-        team.subscriptionExpiresAt && new Date(team.subscriptionExpiresAt) > new Date()
+        !isRestart && team.subscriptionExpiresAt && new Date(team.subscriptionExpiresAt) > new Date()
           ? new Date(team.subscriptionExpiresAt)
           : new Date()
       team.subscriptionExpiresAt = addOneMonth(base)
@@ -221,7 +224,7 @@ export async function PATCH(request, { params }) {
       entityId: team._id,
       action,
       summary: isRenewal
-        ? `Renewed agency "${team.name}" through ${team.subscriptionExpiresAt.toDateString()}`
+        ? `${isRestart ? 'Restarted subscription from today' : 'Renewed'} for agency "${team.name}" through ${team.subscriptionExpiresAt.toDateString()}`
         : `Updated agency "${team.name}"`,
       changes: {
         before,

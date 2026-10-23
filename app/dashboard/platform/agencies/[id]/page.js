@@ -143,6 +143,10 @@ export default function AgencyDetailPage() {
     })
 
   const renewSubscription = () => patch({ renew: true }, 'Subscription renewed for 1 month')
+  const restartSubscription = () => {
+    if (!confirm('Start a fresh 1-month subscription from today? Any remaining days will be removed.')) return
+    patch({ restart: true }, 'Subscription now runs 1 month from today')
+  }
 
   const saveUserName = async (userId) => {
     if (!editingUserName.trim()) {
@@ -332,10 +336,15 @@ export default function AgencyDetailPage() {
               )}
             </div>
           </div>
-          <Button onClick={renewSubscription} disabled={saving}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarClock className="mr-2 h-4 w-4" />}
-            Renew +1 month
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={restartSubscription} disabled={saving}>
+              Start 1 month from today
+            </Button>
+            <Button onClick={renewSubscription} disabled={saving}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarClock className="mr-2 h-4 w-4" />}
+              Renew +1 month
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

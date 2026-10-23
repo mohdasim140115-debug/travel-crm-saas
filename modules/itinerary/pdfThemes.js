@@ -42,9 +42,9 @@ export const PDF_THEME_OPTIONS = [
   {
     id: 'sunset',
     label: 'Sunset Coral',
-    description: 'Clean white brochure with coral accents — photo-led and personal.',
-    primary: '#E8603C',
-    secondary: '#F59E6C',
+    description: 'Travel-poster cover in navy & orange — photo-led and personal.',
+    primary: '#F57C1F',
+    secondary: '#13306B',
     available: true,
     // Premium: off for every agency until the platform super admin unlocks it.
     premium: true,

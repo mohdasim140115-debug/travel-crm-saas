@@ -70,10 +70,15 @@ export async function PUT(request) {
 
     const simpleFields = [
       'logo', 'website', 'phone', 'email', 'address', 'address2',
-      'metaLink', 'scanner1', 'tagline',
+      'metaLink', 'scanner1', 'tagline', 'approvedBy', 'licenseNo', 'gstin',
     ]
     for (const f of simpleFields) {
       if (body[f] !== undefined) company[f] = body[f]
+    }
+
+    if (body.googleRating !== undefined) {
+      const n = Number(body.googleRating)
+      company.googleRating = Number.isFinite(n) && n > 0 ? Math.min(5, Math.round(n * 10) / 10) : undefined
     }
 
     if (body.socials !== undefined) {

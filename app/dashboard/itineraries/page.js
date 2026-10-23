@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
@@ -19,6 +20,19 @@ import ItineraryFilters from '@/components/itinerary/ItineraryFilters'
 import ItineraryEmpty from '@/components/itinerary/ItineraryEmpty'
 import { ItineraryListSkeleton } from '@/components/itinerary/ItinerarySkeleton'
 import { useItineraries } from '@/hooks/useItineraries'
+
+// First, last and the pages around the current one, with "…" for the gaps —
+// listing every page number overflows sideways once there are dozens.
+function pageWindow(current, total) {
+  const pages = new Set([1, total, current - 1, current, current + 1])
+  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b)
+  const out = []
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) out.push('…')
+    out.push(p)
+  })
+  return out
+}
 
 export default function ItinerariesPage() {
   const router = useRouter()
@@ -198,7 +212,12 @@ export default function ItinerariesPage() {
                     }}
                   />
                 </PaginationItem>
-                {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((p) => (
+                {pageWindow(filters.page, pagination.pages).map((p, i) =>
+                  p === '…' ? (
+                    <PaginationItem key={`gap-${i}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
                   <PaginationItem key={p}>
                     <PaginationLink
                       href="#"
@@ -211,7 +230,8 @@ export default function ItinerariesPage() {
                       {p}
                     </PaginationLink>
                   </PaginationItem>
-                ))}
+                  )
+                )}
                 <PaginationItem>
                   <PaginationNext
                     href="#"

@@ -180,6 +180,10 @@ const EMPTY = {
   address2: '',
   scanner1: '',
   tagline: '',
+  googleRating: '',
+  approvedBy: '',
+  licenseNo: '',
+  gstin: '',
   socials: { facebook: '', instagram: '', google: '', youtube: '' },
   bankDetails: { bankName: '', accountName: '', accountNumber: '', ifscCode: '' },
 }
@@ -227,6 +231,10 @@ export function CompanyProfile() {
             address2: c.address2 || '',
             scanner1: c.scanner1 || '',
             tagline: c.tagline || '',
+            googleRating: c.googleRating ? String(c.googleRating) : '',
+            approvedBy: c.approvedBy || '',
+            licenseNo: c.licenseNo || '',
+            gstin: c.gstin || '',
             socials: {
               facebook: c.socials?.facebook || '',
               instagram: c.socials?.instagram || '',
@@ -510,13 +518,41 @@ export function CompanyProfile() {
         <div>
           <h4 className="flex items-center gap-2 text-sm font-semibold"><span className="h-4 w-1 rounded-full bg-primary" /><Share2 className="h-4 w-4 text-primary" /> Tagline &amp; social links</h4>
           <p className="mt-1 text-xs text-muted-foreground">
-            Shown under the cover photo of the Sunset Coral PDF as clickable icons. WhatsApp uses your phone number above.
+            Used in the Sunset Coral PDF — cover strip and footer (rating, approval, license & GST). Social icons are clickable; WhatsApp uses your phone number above.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Tagline</Label>
             <Input value={form.tagline} onChange={(e) => set({ tagline: e.target.value })} placeholder="e.g. The Soul of Kashmir" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Google rating (e.g. 5.0)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={5}
+              step={0.1}
+              value={form.googleRating}
+              onChange={(e) => set({ googleRating: e.target.value })}
+              placeholder="5.0"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Approved by</Label>
+            <Input
+              value={form.approvedBy}
+              onChange={(e) => set({ approvedBy: e.target.value })}
+              placeholder="Department of Tourism, Jammu & Kashmir"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>License number</Label>
+            <Input value={form.licenseNo} onChange={(e) => set({ licenseNo: e.target.value })} placeholder="JKEA00001744" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>GST-IN</Label>
+            <Input value={form.gstin} onChange={(e) => set({ gstin: e.target.value })} placeholder="01ABCDE1234F1Z5" />
           </div>
           {SOCIAL_FIELDS.map((s) => (
             <div key={s.key} className="space-y-1.5">
