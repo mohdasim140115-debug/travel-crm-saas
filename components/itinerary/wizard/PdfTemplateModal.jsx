@@ -20,6 +20,9 @@ import { toCompressedDataUrl } from '@/lib/imageCompress'
 import { PDF_THEME_OPTIONS, isPdfThemeUsable } from '@/modules/itinerary/pdfThemes'
 import { useUnlockedPdfThemes } from '@/hooks/useUnlockedPdfThemes'
 
+/** Monthly price shown on a locked design's upgrade overlay. */
+const PREMIUM_PDF_PRICE = 499
+
 /** Ocean Blue's and Emerald Luxury's day-wise timelines each show a photo
  * beside every day — picked here, right after choosing the theme, either
  * from the agency's own gallery or uploaded fresh from the device
@@ -193,20 +196,22 @@ export default function PdfTemplateModal({ open, onOpenChange, onConfirm, genera
                 <button
                   key={t.id}
                   type="button"
-                  disabled={!canUse}
-                  onClick={() => setSelected(t.id)}
+                  // Not `disabled`: a disabled button swallows hover, and the
+                  // upgrade overlay below needs it.
+                  aria-disabled={!canUse}
+                  onClick={() => canUse && setSelected(t.id)}
                   className={cn(
-                    'relative flex flex-col overflow-hidden rounded-xl border text-left transition-all',
+                    'group relative flex flex-col overflow-hidden rounded-xl border text-left transition-all',
                     active ? 'border-transparent ring-2 ring-offset-2 ring-offset-background' : 'border-border/60 hover:border-border',
-                    !canUse && 'cursor-not-allowed opacity-50'
+                    !canUse && 'cursor-not-allowed'
                   )}
                   style={active ? { '--tw-ring-color': t.primary } : undefined}
                 >
                   <div
-                    className="h-16 w-full"
+                    className={cn('h-16 w-full', !canUse && 'opacity-50')}
                     style={{ background: `linear-gradient(135deg, ${t.primary}, ${t.secondary})` }}
                   />
-                  <div className="space-y-0.5 p-2.5">
+                  <div className={cn('space-y-0.5 p-2.5', !canUse && 'opacity-50')}>
                     <p className="text-xs font-semibold">{t.label}</p>
                     <p className="truncate text-[10px] text-muted-foreground">
                       {premiumLocked ? 'Premium — ask your admin to unlock' : t.description}
@@ -221,9 +226,21 @@ export default function PdfTemplateModal({ open, onOpenChange, onConfirm, genera
                     </span>
                   )}
                   {!canUse && (
-                    <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                    <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted text-muted-foreground transition-opacity group-hover:opacity-0">
                       <Lock className="h-3 w-3" />
                     </span>
+                  )}
+                  {/* Hover a locked design → upgrade prompt. */}
+                  {!canUse && (
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-linear-to-br from-violet-600/95 to-fuchsia-600/95 p-2 text-center text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+                        <Lock className="h-4 w-4" />
+                      </span>
+                      <p className="text-xs font-bold leading-tight">Upgrade your plan</p>
+                      <p className="text-[11px] leading-tight text-white/90">
+                        <span className="text-sm font-bold">₹{PREMIUM_PDF_PRICE}</span> / month
+                      </p>
+                    </div>
                   )}
                 </button>
               )

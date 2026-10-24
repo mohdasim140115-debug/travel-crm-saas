@@ -588,22 +588,41 @@ function LeadsContent() {
   // "Not responding" is whatever the owner actually named that status in
   // Settings → Lead Statuses (it isn't a fixed key) — matched by what the
   // label says rather than hard-coding one tenant's spelling of it.
-  const notRespondingCount = statusOptions
-    .filter((s) => /no.?response|not.?answering|not.?picked|no.?answer/i.test(s.label))
-    .reduce((sum, s) => sum + (statusCounts[s.key] || 0), 0)
+  const notRespondingStatuses = statusOptions.filter((s) =>
+    /no.?response|not.?answering|not.?picked|no.?answer/i.test(s.label)
+  )
+  const notRespondingCount = notRespondingStatuses.reduce((sum, s) => sum + (statusCounts[s.key] || 0), 0)
+  // The status filter takes one key — if the owner has several "not
+  // responding"-style statuses, the tile opens the busiest one.
+  const notRespondingKey = [...notRespondingStatuses].sort(
+    (a, b) => (statusCounts[b.key] || 0) - (statusCounts[a.key] || 0)
+  )[0]?.key
 
   const STAT_TILES = [
-    { label: 'All leads', value: allLeadsCount, icon: Users, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-sky-500 !border-sky-500 shadow-lg shadow-sky-500/30' },
-    { label: 'New leads', value: statusCounts.new || 0, icon: UserPlus, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-indigo-500 !border-indigo-500 shadow-lg shadow-indigo-500/30' },
-    { label: 'Contacted', value: statusCounts.contacted || 0, icon: UserCheck, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-emerald-500 !border-emerald-500 shadow-lg shadow-emerald-500/30' },
-    { label: 'Pending follow-ups', value: headerExtra.pending, icon: Clock, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-amber-500 !border-amber-500 shadow-lg shadow-amber-500/30' },
+    { label: 'All leads', filter: {}, value: allLeadsCount, icon: Users, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-sky-500 !border-sky-500 shadow-lg shadow-sky-500/30' },
+    { label: 'New leads', filter: { status: 'new' }, value: statusCounts.new || 0, icon: UserPlus, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-indigo-500 !border-indigo-500 shadow-lg shadow-indigo-500/30' },
+    { label: 'Contacted', filter: { status: 'contacted' }, value: statusCounts.contacted || 0, icon: UserCheck, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-emerald-500 !border-emerald-500 shadow-lg shadow-emerald-500/30' },
+    { label: 'Pending follow-ups', filter: { followUp: 'pending' }, value: headerExtra.pending, icon: Clock, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-amber-500 !border-amber-500 shadow-lg shadow-amber-500/30' },
     ...(notRespondingCount
-      ? [{ label: 'Not responding', value: notRespondingCount, icon: Bell, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-rose-500 !border-rose-500 shadow-lg shadow-rose-500/30' }]
+      ? [{ label: 'Not responding', filter: { status: notRespondingKey }, value: notRespondingCount, icon: Bell, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-rose-500 !border-rose-500 shadow-lg shadow-rose-500/30' }]
       : []),
     ...(canAssign
-      ? [{ label: 'Unassigned', value: headerExtra.unassigned, icon: UserX, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-violet-500 !border-violet-500 shadow-lg shadow-violet-500/30' }]
+      ? [{ label: 'Unassigned', filter: { assigned: 'unassigned' }, value: headerExtra.unassigned, icon: UserX, iconTone: 'bg-white/25 text-white', cardTone: '!bg-none !bg-violet-500 !border-violet-500 shadow-lg shadow-violet-500/30' }]
       : []),
   ]
+
+  // Clicking a tile shows exactly what it counts — sets that one filter and
+  // clears the other two (the search box is left alone).
+  const tileActive = (f) =>
+    filterStatus === (f.status || 'all') &&
+    filterFollowUp === (f.followUp || 'all') &&
+    filterAssigned === (f.assigned || 'all')
+  const applyTile = (f) => {
+    setFilterStatus(f.status || 'all')
+    setFilterFollowUp(f.followUp || 'all')
+    setFilterAssigned(f.assigned || 'all')
+    setPage(1)
+  }
 
   const resetFilters = () => {
     setSearchTerm('')
@@ -623,10 +642,18 @@ function LeadsContent() {
         <div className={`grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 ${STAT_TILES.length >= 6 ? 'lg:grid-cols-6' : 'lg:grid-cols-5'}`}>
           {STAT_TILES.map((t) => {
             const Icon = t.icon
+            const active = tileActive(t.filter)
             return (
               <Card
                 key={t.label}
-                className={`gap-0 !rounded-sm p-3 transition-transform duration-200 hover:-translate-y-0.5 ${t.cardTone}`}
+                role="button"
+                tabIndex={0}
+                aria-pressed={active}
+                onClick={() => applyTile(t.filter)}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), applyTile(t.filter))}
+                className={`cursor-pointer gap-0 !rounded-sm p-3 transition-transform duration-200 hover:-translate-y-0.5 ${t.cardTone} ${
+                  active ? 'ring-4 ring-white/70 ring-offset-2 ring-offset-background' : ''
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${t.iconTone}`}>
