@@ -11,17 +11,13 @@ import Notification from '@/models/Notification'
 import User from '@/models/User'
 import { authenticate, requireLeadAccess } from '@/lib/middleware'
 import { canOnlyViewOwnLeads } from '@/lib/permissions'
-import { tenantFilter } from '@/lib/tenant'
+import { tenantFilter, leadByIdFilter } from '@/lib/tenant'
 import { notifyUser } from '@/lib/notify'
 import { notifyMetaLeadStatusChange } from '@/lib/metaCapi/sendConversionEvent'
 import mongoose from 'mongoose'
 
 function leadAccessQuery(authUser, id) {
-  const q = { _id: id, ...tenantFilter(authUser) }
-  if (canOnlyViewOwnLeads(authUser.role)) {
-    q.assignedTo = new mongoose.Types.ObjectId(String(authUser.userId))
-  }
-  return q
+  return leadByIdFilter(authUser, id, canOnlyViewOwnLeads)
 }
 
 export async function GET(request, { params }) {
@@ -49,7 +45,15 @@ export async function GET(request, { params }) {
     )
 
     if (!lead) {
-      return Response.json({ error: 'Lead not found' }, { status: 404 })
+      // Say why, instead of a bare "not found": a salesperson opening an old
+      // notification for a lead that has since been reassigned.
+      if (canOnlyViewOwnLeads(authResult.user.role)) {
+        const exists = await Lead.exists({ _id: id, teamId: authResult.user.teamId })
+        if (exists) {
+          return Response.json({ error: 'This lead is now assigned to someone else' }, { status: 403 })
+        }
+      }
+      return Response.json({ error: 'This lead no longer exists (it may have been deleted)' }, { status: 404 })
     }
 
     return Response.json({ lead })

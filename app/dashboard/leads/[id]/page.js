@@ -37,6 +37,7 @@ export default function LeadDetailPage({ params }) {
   const { id } = use(params)
   const router = useRouter()
   const [lead, setLead] = useState(null)
+  const [loadError, setLoadError] = useState('')
   const [timeline, setTimeline] = useState([])
   const [itineraries, setItineraries] = useState([])
   const [followUps, setFollowUps] = useState([])
@@ -98,6 +99,7 @@ export default function LeadDetailPage({ params }) {
       const bk = await bkRes.json()
       setBookings(bk.bookings || [])
     } catch (e) {
+      setLoadError(e.message)
       toast.error(e.message)
     } finally {
       setLoading(false)
@@ -228,7 +230,7 @@ export default function LeadDetailPage({ params }) {
   if (!lead) {
     return (
       <div className="text-center py-16">
-        <p className="text-muted-foreground">Lead not found</p>
+        <p className="text-muted-foreground">{loadError || 'Lead not found'}</p>
         <Button asChild className="mt-4" variant="outline">
           <Link href="/dashboard/leads">Back to leads</Link>
         </Button>

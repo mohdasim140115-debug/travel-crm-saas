@@ -3,15 +3,11 @@ import Lead from '@/models/Lead'
 import LeadTimeline from '@/models/LeadTimeline'
 import { authenticate, requireLeadAccess } from '@/lib/middleware'
 import { canOnlyViewOwnLeads } from '@/lib/permissions'
-import { tenantFilter } from '@/lib/tenant'
+import { leadByIdFilter } from '@/lib/tenant'
 import mongoose from 'mongoose'
 
 function leadQuery(authUser, id) {
-  const q = { _id: id, ...tenantFilter(authUser) }
-  if (canOnlyViewOwnLeads(authUser.role)) {
-    q.assignedTo = new mongoose.Types.ObjectId(String(authUser.userId))
-  }
-  return q
+  return leadByIdFilter(authUser, id, canOnlyViewOwnLeads)
 }
 
 export async function GET(request, { params }) {

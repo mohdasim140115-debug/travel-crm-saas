@@ -19,7 +19,9 @@ export function ThemeToggle() {
   // icon can only be rendered after mount to avoid a hydration mismatch.
   useEffect(() => setMounted(true), [])
 
-  const isDark = resolvedTheme === 'dark'
+  // Until mount, render exactly what the server did (light) — the icon,
+  // aria-label and title must all wait, not just the icon.
+  const isDark = mounted && resolvedTheme === 'dark'
 
   return (
     <Button
@@ -31,7 +33,7 @@ export function ThemeToggle() {
       title={isDark ? 'Light mode' : 'Dark mode'}
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
     >
-      {mounted && isDark ? (
+      {isDark ? (
         <Sun className="h-5 w-5" />
       ) : (
         <Moon className="h-5 w-5" />
